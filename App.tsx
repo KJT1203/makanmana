@@ -1,11 +1,126 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 // Serif face for the "editorial" headings (brand, restaurant names, titles).
 // Georgia is a built-in system serif, so no font install is needed for now —
 // later we can swap in a nicer Google Font (e.g. Lora) via expo-font.
 const SERIF = 'Georgia';
+
+// One key holds everything we persist (accounts, favourites, reviews, user,
+// language) as a single JSON blob — one read on start, one write on change.
+const STORAGE_KEY = 'makanmana';
+
+// LANGUAGES — English + Bahasa Melayu. A plain dictionary keyed by a short id;
+// t('logout') looks up the current language. No i18n library needed for this.
+// (Adding Chinese later = one more block here.) Restaurant names / cuisines
+// stay untranslated — they're data, not UI chrome.
+type Lang = 'en' | 'ms';
+const STRINGS: Record<Lang, Record<string, string>> = {
+  en: {
+    tagline: 'Where to eat near UCSI',
+    hi: 'Hi,',
+    logout: 'Log out',
+    search: 'Search restaurants…',
+    halalOnly: 'Halal only',
+    all: 'All',
+    anyPrice: 'Any price',
+    place: 'place',
+    places: 'places',
+    noMatch: 'No places match these filters.',
+    users: 'users',
+    kmAway: 'km away',
+    back: 'Back',
+    saved: '♥  Saved',
+    saveToFav: '♡  Save to favourites',
+    menu: 'Menu',
+    menuSoon: 'Menu coming soon.',
+    reviews: 'Reviews',
+    yourRating: 'Your rating',
+    writeReview: 'Write a review (optional)',
+    postReview: 'Post review',
+    noReviews: 'No reviews yet — be the first!',
+    welcomeBack: 'Welcome back',
+    createAccount: 'Create account',
+    name: 'Name',
+    email: 'Email',
+    password: 'Password',
+    login: 'Log in',
+    signup: 'Sign up',
+    toSignup: 'New here? Create an account',
+    toLogin: 'Already have an account? Log in',
+    errName: 'Please enter your name.',
+    errEmail: 'Please enter your email.',
+    errPassword: 'Please enter a password.',
+    errDup: 'That email is already registered.',
+    errWrong: 'Wrong email or password.',
+    myAccount: 'My Account',
+    editName: 'Edit name',
+    saveName: 'Save name',
+    yourName: 'Your name',
+    account: 'Account',
+    status: 'Status',
+    active: '● Active',
+    memberSince: 'Member since',
+    myActivity: 'My activity',
+    favourites: 'Favourites',
+    savedPlaces: 'Saved places',
+    savedHint: 'Tap the heart on any restaurant to save it here.',
+    language: 'Language',
+  },
+  ms: {
+    tagline: 'Tempat makan berhampiran UCSI',
+    hi: 'Hai,',
+    logout: 'Log keluar',
+    search: 'Cari restoran…',
+    halalOnly: 'Halal sahaja',
+    all: 'Semua',
+    anyPrice: 'Semua harga',
+    place: 'tempat',
+    places: 'tempat',
+    noMatch: 'Tiada tempat sepadan dengan penapis ini.',
+    users: 'pengguna',
+    kmAway: 'km dari sini',
+    back: 'Kembali',
+    saved: '♥  Disimpan',
+    saveToFav: '♡  Simpan ke kegemaran',
+    menu: 'Menu',
+    menuSoon: 'Menu akan datang.',
+    reviews: 'Ulasan',
+    yourRating: 'Penilaian anda',
+    writeReview: 'Tulis ulasan (pilihan)',
+    postReview: 'Hantar ulasan',
+    noReviews: 'Tiada ulasan lagi — jadilah yang pertama!',
+    welcomeBack: 'Selamat kembali',
+    createAccount: 'Cipta akaun',
+    name: 'Nama',
+    email: 'E-mel',
+    password: 'Kata laluan',
+    login: 'Log masuk',
+    signup: 'Daftar',
+    toSignup: 'Baharu di sini? Cipta akaun',
+    toLogin: 'Sudah ada akaun? Log masuk',
+    errName: 'Sila masukkan nama anda.',
+    errEmail: 'Sila masukkan e-mel anda.',
+    errPassword: 'Sila masukkan kata laluan.',
+    errDup: 'E-mel itu telah didaftarkan.',
+    errWrong: 'E-mel atau kata laluan salah.',
+    myAccount: 'Akaun Saya',
+    editName: 'Edit nama',
+    saveName: 'Simpan nama',
+    yourName: 'Nama anda',
+    account: 'Akaun',
+    status: 'Status',
+    active: '● Aktif',
+    memberSince: 'Ahli sejak',
+    myActivity: 'Aktiviti saya',
+    favourites: 'Kegemaran',
+    savedPlaces: 'Tempat disimpan',
+    savedHint: 'Ketik hati pada mana-mana restoran untuk menyimpannya di sini.',
+    language: 'Bahasa',
+  },
+};
 
 // One dish on a menu: a name and a price (in RM).
 type MenuItem = {
@@ -119,11 +234,17 @@ function RestaurantCard({
   onPress,
   isFav,
   onToggleFav,
+  userRating,
+  reviewCount,
+  t,
 }: {
   restaurant: Restaurant;
   onPress: () => void;
   isFav: boolean;
   onToggleFav: () => void;
+  userRating: number;  // resolved: review average, or the seed if no reviews
+  reviewCount: number;
+  t: (k: string) => string;
 }) {
   // The card is a plain View so we can have TWO separate tap targets inside it:
   // the main area (opens the detail screen) and the heart (toggles favourite).
@@ -150,10 +271,15 @@ function RestaurantCard({
               <Text style={styles.star}>★ </Text>
               {restaurant.googleRating} Google
             </Text>
-            <Text style={styles.rating}>{restaurant.userRating} users</Text>
+            <Text style={styles.rating}>
+              {userRating.toFixed(1)} {t('users')}
+              {reviewCount > 0 ? ` (${reviewCount})` : ''}
+            </Text>
           </View>
 
-          <Text style={styles.meta}>{restaurant.distanceKm} km away</Text>
+          <Text style={styles.meta}>
+            {restaurant.distanceKm} {t('kmAway')}
+          </Text>
         </View>
       </Pressable>
 
@@ -178,6 +304,7 @@ function DetailScreen({
   onToggleFav,
   reviews,
   onAddReview,
+  t,
 }: {
   restaurant: Restaurant;
   onBack: () => void;
@@ -185,6 +312,7 @@ function DetailScreen({
   onToggleFav: () => void;
   reviews: Review[];              // only THIS restaurant's reviews
   onAddReview: (rating: number, text: string) => void;
+  t: (k: string) => string;
 }) {
   // Local state for the little "write a review" form.
   const [myRating, setMyRating] = useState(0); // 0 = no star picked yet
@@ -207,12 +335,12 @@ function DetailScreen({
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onBack}>
-          <Text style={styles.back}>← Back</Text>
+          <Text style={styles.back}>← {t('back')}</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{restaurant.name}</Text>
         <Text style={styles.headerSubtitle}>
           {restaurant.cuisine} · {priceLabel(restaurant.priceLevel)} ·{' '}
-          {restaurant.distanceKm} km away
+          {restaurant.distanceKm} {t('kmAway')}
         </Text>
       </View>
 
@@ -223,7 +351,10 @@ function DetailScreen({
             <Text style={styles.star}>★ </Text>
             {restaurant.googleRating} Google
           </Text>
-          <Text style={styles.rating}>{restaurant.userRating} users</Text>
+          <Text style={styles.rating}>
+            {avg ?? restaurant.userRating} {t('users')}
+            {reviews.length ? ` (${reviews.length})` : ''}
+          </Text>
           {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
         </View>
 
@@ -233,15 +364,15 @@ function DetailScreen({
           onPress={onToggleFav}
         >
           <Text style={[styles.saveBtnText, isFav && styles.saveBtnTextActive]}>
-            {isFav ? '♥  Saved' : '♡  Save to favourites'}
+            {isFav ? t('saved') : t('saveToFav')}
           </Text>
         </Pressable>
 
-        <Text style={styles.sectionTitle}>Menu</Text>
+        <Text style={styles.sectionTitle}>{t('menu')}</Text>
 
         {/* If we've curated a menu, list each item; otherwise show a note. */}
         {restaurant.menu.length === 0 ? (
-          <Text style={styles.empty}>Menu coming soon.</Text>
+          <Text style={styles.empty}>{t('menuSoon')}</Text>
         ) : (
           restaurant.menu.map((item) => (
             <View key={item.name} style={styles.menuRow}>
@@ -253,12 +384,12 @@ function DetailScreen({
 
         {/* REVIEWS */}
         <Text style={[styles.sectionTitle, styles.reviewsTitle]}>
-          Reviews{avg ? `  ★ ${avg}` : ''}
+          {t('reviews')}{avg ? `  ★ ${avg}` : ''}
         </Text>
 
         {/* Write-a-review form */}
         <View style={styles.reviewForm}>
-          <Text style={styles.reviewFormLabel}>Your rating</Text>
+          <Text style={styles.reviewFormLabel}>{t('yourRating')}</Text>
           <View style={styles.starPickRow}>
             {[1, 2, 3, 4, 5].map((n) => (
               <Pressable key={n} onPress={() => setMyRating(n)} hitSlop={4}>
@@ -270,20 +401,20 @@ function DetailScreen({
           </View>
           <TextInput
             style={styles.reviewInput}
-            placeholder="Write a review (optional)"
+            placeholder={t('writeReview')}
             placeholderTextColor="#b3a695"
             value={myText}
             onChangeText={setMyText}
             multiline
           />
           <Pressable style={styles.reviewSubmit} onPress={submitReview}>
-            <Text style={styles.reviewSubmitText}>Post review</Text>
+            <Text style={styles.reviewSubmitText}>{t('postReview')}</Text>
           </Pressable>
         </View>
 
         {/* Existing reviews, newest first (App passes them already sorted) */}
         {reviews.length === 0 ? (
-          <Text style={styles.hint}>No reviews yet — be the first!</Text>
+          <Text style={styles.hint}>{t('noReviews')}</Text>
         ) : (
           reviews.map((r) => (
             <View key={r.id} style={styles.reviewRow}>
@@ -320,9 +451,11 @@ type Account = {
 function AuthScreen({
   onLogin,
   onSignup,
+  t,
 }: {
   onLogin: (email: string, password: string) => string | null;
   onSignup: (name: string, email: string, password: string) => string | null;
+  t: (k: string) => string;
 }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [name, setName] = useState('');
@@ -334,9 +467,9 @@ function AuthScreen({
 
   function submit() {
     // Basic validation before we try anything.
-    if (isSignup && name.trim() === '') return setError('Please enter your name.');
-    if (email.trim() === '') return setError('Please enter your email.');
-    if (password === '') return setError('Please enter a password.');
+    if (isSignup && name.trim() === '') return setError(t('errName'));
+    if (email.trim() === '') return setError(t('errEmail'));
+    if (password === '') return setError(t('errPassword'));
 
     // Run the matching handler; null means success, a string is the error.
     const problem = isSignup
@@ -349,16 +482,16 @@ function AuthScreen({
     <View style={styles.screen}>
       <View style={styles.authWrap}>
         <Text style={styles.authLogo}>MakanMana</Text>
-        <Text style={styles.authTagline}>Where to eat near UCSI</Text>
+        <Text style={styles.authTagline}>{t('tagline')}</Text>
 
         <View style={styles.authCard}>
-          <Text style={styles.authTitle}>{isSignup ? 'Create account' : 'Welcome back'}</Text>
+          <Text style={styles.authTitle}>{isSignup ? t('createAccount') : t('welcomeBack')}</Text>
 
           {/* Name field only exists in sign-up mode */}
           {isSignup && (
             <TextInput
               style={styles.authInput}
-              placeholder="Name"
+              placeholder={t('name')}
               placeholderTextColor="#94a3b8"
               value={name}
               onChangeText={setName}
@@ -367,7 +500,7 @@ function AuthScreen({
 
           <TextInput
             style={styles.authInput}
-            placeholder="Email"
+            placeholder={t('email')}
             placeholderTextColor="#94a3b8"
             autoCapitalize="none"
             keyboardType="email-address"
@@ -377,7 +510,7 @@ function AuthScreen({
 
           <TextInput
             style={styles.authInput}
-            placeholder="Password"
+            placeholder={t('password')}
             placeholderTextColor="#94a3b8"
             secureTextEntry
             value={password}
@@ -388,7 +521,7 @@ function AuthScreen({
           {error !== '' && <Text style={styles.authError}>{error}</Text>}
 
           <Pressable style={styles.authButton} onPress={submit}>
-            <Text style={styles.authButtonText}>{isSignup ? 'Sign up' : 'Log in'}</Text>
+            <Text style={styles.authButtonText}>{isSignup ? t('signup') : t('login')}</Text>
           </Pressable>
 
           {/* Switch between the two modes; clear any stale error when we do */}
@@ -399,7 +532,7 @@ function AuthScreen({
             }}
           >
             <Text style={styles.authSwitch}>
-              {isSignup ? 'Already have an account? Log in' : 'New here? Create an account'}
+              {isSignup ? t('toLogin') : t('toSignup')}
             </Text>
           </Pressable>
         </View>
@@ -419,6 +552,9 @@ function ProfileScreen({
   onUpdateName,
   onLogout,
   onBack,
+  t,
+  lang,
+  onSetLang,
 }: {
   user: Account;
   favourites: Restaurant[];
@@ -427,6 +563,9 @@ function ProfileScreen({
   onUpdateName: (name: string) => void;
   onLogout: () => void;
   onBack: () => void;
+  t: (k: string) => string;
+  lang: Lang;
+  onSetLang: (l: Lang) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(user.name);
@@ -441,9 +580,9 @@ function ProfileScreen({
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={onBack}>
-          <Text style={styles.back}>← Back</Text>
+          <Text style={styles.back}>← {t('back')}</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>My Account</Text>
+        <Text style={styles.headerTitle}>{t('myAccount')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.detailBody}>
@@ -458,7 +597,7 @@ function ProfileScreen({
               style={[styles.authInput, styles.nameInput]}
               value={draftName}
               onChangeText={setDraftName}
-              placeholder="Your name"
+              placeholder={t('yourName')}
               placeholderTextColor="#94a3b8"
             />
           ) : (
@@ -469,7 +608,7 @@ function ProfileScreen({
 
         {editing ? (
           <Pressable style={styles.profileBtn} onPress={save}>
-            <Text style={styles.profileBtnText}>Save name</Text>
+            <Text style={styles.profileBtnText}>{t('saveName')}</Text>
           </Pressable>
         ) : (
           <Pressable
@@ -479,40 +618,61 @@ function ProfileScreen({
               setEditing(true);
             }}
           >
-            <Text style={styles.profileBtnOutlineText}>Edit name</Text>
+            <Text style={styles.profileBtnOutlineText}>{t('editName')}</Text>
           </Pressable>
         )}
 
         {/* Account info */}
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>{t('account')}</Text>
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Status</Text>
-            <Text style={styles.statusActive}>● Active</Text>
+            <Text style={styles.infoLabel}>{t('status')}</Text>
+            <Text style={styles.statusActive}>{t('active')}</Text>
           </View>
           <View style={[styles.infoRow, styles.infoRowLast]}>
-            <Text style={styles.infoLabel}>Member since</Text>
+            <Text style={styles.infoLabel}>{t('memberSince')}</Text>
             <Text style={styles.infoValue}>{new Date(user.joinedAt).toLocaleDateString()}</Text>
           </View>
         </View>
 
+        {/* Language toggle */}
+        <Text style={styles.sectionTitle}>{t('language')}</Text>
+        <View style={styles.langRow}>
+          <Pressable
+            style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
+            onPress={() => onSetLang('en')}
+          >
+            <Text style={[styles.langBtnText, lang === 'en' && styles.langBtnTextActive]}>
+              English
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.langBtn, lang === 'ms' && styles.langBtnActive]}
+            onPress={() => onSetLang('ms')}
+          >
+            <Text style={[styles.langBtnText, lang === 'ms' && styles.langBtnTextActive]}>
+              Bahasa Melayu
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Activity — Favourites is now REAL (driven by the shared state) */}
-        <Text style={styles.sectionTitle}>My activity</Text>
+        <Text style={styles.sectionTitle}>{t('myActivity')}</Text>
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{favourites.length}</Text>
-            <Text style={styles.statLabel}>Favourites</Text>
+            <Text style={styles.statLabel}>{t('favourites')}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{reviewCount}</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
+            <Text style={styles.statLabel}>{t('reviews')}</Text>
           </View>
         </View>
 
         {/* Saved places list */}
-        <Text style={styles.sectionTitle}>Saved places</Text>
+        <Text style={styles.sectionTitle}>{t('savedPlaces')}</Text>
         {favourites.length === 0 ? (
-          <Text style={styles.hint}>Tap the heart on any restaurant to save it here.</Text>
+          <Text style={styles.hint}>{t('savedHint')}</Text>
         ) : (
           favourites.map((r) => (
             <Pressable key={r.id} style={styles.savedRow} onPress={() => onOpenRestaurant(r)}>
@@ -531,7 +691,7 @@ function ProfileScreen({
         )}
 
         <Pressable style={styles.logoutBtn} onPress={onLogout}>
-          <Text style={styles.logoutBtnText}>Log out</Text>
+          <Text style={styles.logoutBtnText}>{t('logout')}</Text>
         </Pressable>
       </ScrollView>
 
@@ -554,6 +714,11 @@ export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([]); // everyone who signed up (in memory)
   const [user, setUser] = useState<Account | null>(null);  // who's logged in? null = nobody
   const [showProfile, setShowProfile] = useState(false);   // is the account screen open?
+
+  // LANGUAGE — current language + the translate helper. t('key') returns the
+  // string for the current language, falling back to English then the key.
+  const [lang, setLang] = useState<Lang>('en');
+  const t = (k: string) => STRINGS[lang][k] ?? STRINGS.en[k] ?? k;
 
   // FAVOURITES — one shared list of saved restaurant ids, read by the list,
   // the detail screen, and the profile. This is the "single source of truth".
@@ -580,10 +745,40 @@ export default function App() {
     setReviews((prev) => [review, ...prev]); // newest first
   }
 
+  // PERSISTENCE — load saved data once on start, then save on every change.
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw); // parsing stored data — guard against corruption
+          setAccounts(data.accounts ?? []);
+          setFavourites(data.favourites ?? []);
+          setReviews(data.reviews ?? []);
+          setUser(data.user ?? null);
+          setLang(data.lang ?? 'en');
+        }
+      } catch {
+        // ignore a corrupt/missing store; we just start fresh
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return; // don't overwrite storage before the initial load finishes
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ accounts, favourites, reviews, user, lang })
+    );
+  }, [loaded, accounts, favourites, reviews, user, lang]);
+
   // Sign up: reject a duplicate email, otherwise save the account and log in.
   function handleSignup(name: string, email: string, password: string) {
     if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
-      return 'That email is already registered.';
+      return t('errDup');
     }
     const account = { name, email, password, joinedAt: Date.now() }; // stamp the join date
     setAccounts([...accounts, account]); // add to the list (spread keeps the old ones)
@@ -596,7 +791,7 @@ export default function App() {
     const account = accounts.find(
       (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
     );
-    if (!account) return 'Wrong email or password.';
+    if (!account) return t('errWrong');
     setUser(account);
     return null;
   }
@@ -610,9 +805,14 @@ export default function App() {
     setAccounts(accounts.map((a) => (a.email === user.email ? updated : a)));
   }
 
+  // Still loading saved data -> blank cream screen for a split second.
+  if (!loaded) {
+    return <View style={styles.screen} />;
+  }
+
   // Nobody logged in yet -> show only the auth screen.
   if (!user) {
-    return <AuthScreen onLogin={handleLogin} onSignup={handleSignup} />;
+    return <AuthScreen onLogin={handleLogin} onSignup={handleSignup} t={t} />;
   }
 
   // Account screen open -> show it instead of the list.
@@ -632,6 +832,9 @@ export default function App() {
           setUser(null);
         }}
         onBack={() => setShowProfile(false)}
+        t={t}
+        lang={lang}
+        onSetLang={setLang}
       />
     );
   }
@@ -646,6 +849,7 @@ export default function App() {
         onToggleFav={() => toggleFavourite(selected.id)}
         reviews={reviews.filter((rv) => rv.restaurantId === selected.id)}
         onAddReview={(rating, text) => addReview(selected.id, rating, text)}
+        t={t}
       />
     );
   }
@@ -671,14 +875,14 @@ export default function App() {
             <View style={styles.avatarSmall}>
               <Text style={styles.avatarSmallText}>{user.name.charAt(0).toUpperCase()}</Text>
             </View>
-            <Text style={styles.greeting}>Hi, {user.name}</Text>
+            <Text style={styles.greeting}>{t('hi')} {user.name}</Text>
           </Pressable>
           <Pressable onPress={() => setUser(null)}>
-            <Text style={styles.logout}>Log out</Text>
+            <Text style={styles.logout}>{t('logout')}</Text>
           </Pressable>
         </View>
         <Text style={styles.brand}>MakanMana</Text>
-        <Text style={styles.headerSubtitle}>Where to eat near UCSI</Text>
+        <Text style={styles.headerSubtitle}>{t('tagline')}</Text>
       </View>
 
       {/* FILTER BAR */}
@@ -687,7 +891,7 @@ export default function App() {
             keystroke, which re-runs the filter and re-draws the list. */}
         <TextInput
           style={styles.search}
-          placeholder="Search restaurants…"
+          placeholder={t('search')}
           placeholderTextColor="#94a3b8"
           value={query}
           onChangeText={setQuery}
@@ -695,7 +899,7 @@ export default function App() {
 
         <View style={styles.filterRow}>
           <FilterPill
-            label="Halal only"
+            label={t('halalOnly')}
             active={halalOnly}
             onPress={() => setHalalOnly(!halalOnly)}
           />
@@ -704,7 +908,12 @@ export default function App() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.filterRow}>
             {CUISINES.map((c) => (
-              <FilterPill key={c} label={c} active={cuisine === c} onPress={() => setCuisine(c)} />
+              <FilterPill
+                key={c}
+                label={c === 'All' ? t('all') : c}
+                active={cuisine === c}
+                onPress={() => setCuisine(c)}
+              />
             ))}
           </View>
         </ScrollView>
@@ -713,7 +922,7 @@ export default function App() {
           {PRICE_OPTIONS.map((p) => (
             <FilterPill
               key={p}
-              label={p === 0 ? 'Any price' : priceLabel(p)}
+              label={p === 0 ? t('anyPrice') : priceLabel(p)}
               active={price === p}
               onPress={() => setPrice(p)}
             />
@@ -724,21 +933,31 @@ export default function App() {
       {/* THE LIST — tapping a card opens it by storing it in `selected` */}
       <ScrollView contentContainerStyle={styles.list}>
         <Text style={styles.count}>
-          {visible.length} {visible.length === 1 ? 'place' : 'places'}
+          {visible.length} {visible.length === 1 ? t('place') : t('places')}
         </Text>
 
-        {visible.map((restaurant) => (
-          <RestaurantCard
-            key={restaurant.id}
-            restaurant={restaurant}
-            onPress={() => setSelected(restaurant)}
-            isFav={favourites.includes(restaurant.id)}
-            onToggleFav={() => toggleFavourite(restaurant.id)}
-          />
-        ))}
+        {visible.map((restaurant) => {
+          // Resolve the "users" rating: average of real reviews, else the seed.
+          const rs = reviews.filter((rv) => rv.restaurantId === restaurant.id);
+          const avg = rs.length
+            ? rs.reduce((sum, r) => sum + r.rating, 0) / rs.length
+            : restaurant.userRating;
+          return (
+            <RestaurantCard
+              key={restaurant.id}
+              restaurant={restaurant}
+              onPress={() => setSelected(restaurant)}
+              isFav={favourites.includes(restaurant.id)}
+              onToggleFav={() => toggleFavourite(restaurant.id)}
+              userRating={avg}
+              reviewCount={rs.length}
+              t={t}
+            />
+          );
+        })}
 
         {visible.length === 0 && (
-          <Text style={styles.empty}>No places match these filters.</Text>
+          <Text style={styles.empty}>{t('noMatch')}</Text>
         )}
       </ScrollView>
 
@@ -941,6 +1160,31 @@ const styles = StyleSheet.create({
     color: '#b04a2f',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  langBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e4d8c6',
+    backgroundColor: '#fffdfa',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  langBtnActive: {
+    backgroundColor: '#c2410c',
+    borderColor: '#c2410c',
+  },
+  langBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8a7b6c',
+  },
+  langBtnTextActive: {
+    color: '#fdf6ee',
   },
   // Auth screen
   authWrap: {
