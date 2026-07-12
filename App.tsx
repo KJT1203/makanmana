@@ -13,6 +13,18 @@ type MenuItem = {
   price: number;
 };
 
+// One in-app review. authorEmail identifies WHO wrote it (for the profile
+// count); author is their name at the time (for display).
+type Review = {
+  id: string;
+  restaurantId: string;
+  author: string;
+  authorEmail: string;
+  rating: number; // 1-5 stars
+  text: string;
+  at: number;     // Date.now()
+};
+
 // A "type" describes the SHAPE of one restaurant, so the editor warns us
 // if we mistype a field (e.g. ".cusine"). This is the TypeScript part.
 type Restaurant = {
@@ -153,18 +165,44 @@ function RestaurantCard({
   );
 }
 
+// Turn a 1-5 rating into filled/empty stars, e.g. 3 -> "★★★☆☆".
+function starString(rating: number) {
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+}
+
 // THE DETAIL SCREEN — shown when a restaurant is open. onBack closes it.
 function DetailScreen({
   restaurant,
   onBack,
   isFav,
   onToggleFav,
+  reviews,
+  onAddReview,
 }: {
   restaurant: Restaurant;
   onBack: () => void;
   isFav: boolean;
   onToggleFav: () => void;
+  reviews: Review[];              // only THIS restaurant's reviews
+  onAddReview: (rating: number, text: string) => void;
 }) {
+  // Local state for the little "write a review" form.
+  const [myRating, setMyRating] = useState(0); // 0 = no star picked yet
+  const [myText, setMyText] = useState('');
+
+  function submitReview() {
+    if (myRating === 0) return; // a star rating is required; text is optional
+    onAddReview(myRating, myText.trim());
+    setMyRating(0);
+    setMyText('');
+  }
+
+  // Average of in-app reviews, if any (rounded to 1 decimal).
+  const avg =
+    reviews.length > 0
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+      : null;
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -209,6 +247,52 @@ function DetailScreen({
             <View key={item.name} style={styles.menuRow}>
               <Text style={styles.menuName}>{item.name}</Text>
               <Text style={styles.menuPrice}>{ringgit(item.price)}</Text>
+            </View>
+          ))
+        )}
+
+        {/* REVIEWS */}
+        <Text style={[styles.sectionTitle, styles.reviewsTitle]}>
+          Reviews{avg ? `  ★ ${avg}` : ''}
+        </Text>
+
+        {/* Write-a-review form */}
+        <View style={styles.reviewForm}>
+          <Text style={styles.reviewFormLabel}>Your rating</Text>
+          <View style={styles.starPickRow}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setMyRating(n)} hitSlop={4}>
+                <Text style={[styles.starPick, n <= myRating && styles.starPickOn]}>
+                  {n <= myRating ? '★' : '☆'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            style={styles.reviewInput}
+            placeholder="Write a review (optional)"
+            placeholderTextColor="#b3a695"
+            value={myText}
+            onChangeText={setMyText}
+            multiline
+          />
+          <Pressable style={styles.reviewSubmit} onPress={submitReview}>
+            <Text style={styles.reviewSubmitText}>Post review</Text>
+          </Pressable>
+        </View>
+
+        {/* Existing reviews, newest first (App passes them already sorted) */}
+        {reviews.length === 0 ? (
+          <Text style={styles.hint}>No reviews yet — be the first!</Text>
+        ) : (
+          reviews.map((r) => (
+            <View key={r.id} style={styles.reviewRow}>
+              <View style={styles.reviewHead}>
+                <Text style={styles.reviewAuthor}>{r.author}</Text>
+                <Text style={styles.reviewStars}>{starString(r.rating)}</Text>
+              </View>
+              {r.text !== '' && <Text style={styles.reviewText}>{r.text}</Text>}
+              <Text style={styles.reviewDate}>{new Date(r.at).toLocaleDateString()}</Text>
             </View>
           ))
         )}
@@ -330,6 +414,7 @@ function AuthScreen({
 function ProfileScreen({
   user,
   favourites,
+  reviewCount,
   onOpenRestaurant,
   onUpdateName,
   onLogout,
@@ -337,6 +422,7 @@ function ProfileScreen({
 }: {
   user: Account;
   favourites: Restaurant[];
+  reviewCount: number;
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onUpdateName: (name: string) => void;
   onLogout: () => void;
@@ -418,7 +504,7 @@ function ProfileScreen({
             <Text style={styles.statLabel}>Favourites</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNum}>0</Text>
+            <Text style={styles.statNum}>{reviewCount}</Text>
             <Text style={styles.statLabel}>Reviews</Text>
           </View>
         </View>
@@ -478,6 +564,22 @@ export default function App() {
     );
   }
 
+  // REVIEWS — another shared list, same pattern as favourites.
+  const [reviews, setReviews] = useState<Review[]>([]);
+  function addReview(restaurantId: string, rating: number, text: string) {
+    if (!user) return;
+    const review: Review = {
+      id: String(Date.now()),
+      restaurantId,
+      author: user.name,
+      authorEmail: user.email,
+      rating,
+      text,
+      at: Date.now(),
+    };
+    setReviews((prev) => [review, ...prev]); // newest first
+  }
+
   // Sign up: reject a duplicate email, otherwise save the account and log in.
   function handleSignup(name: string, email: string, password: string) {
     if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
@@ -519,6 +621,7 @@ export default function App() {
       <ProfileScreen
         user={user}
         favourites={RESTAURANTS.filter((r) => favourites.includes(r.id))}
+        reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
         onOpenRestaurant={(r) => {
           setShowProfile(false);
           setSelected(r);
@@ -541,6 +644,8 @@ export default function App() {
         onBack={() => setSelected(null)}
         isFav={favourites.includes(selected.id)}
         onToggleFav={() => toggleFavourite(selected.id)}
+        reviews={reviews.filter((rv) => rv.restaurantId === selected.id)}
+        onAddReview={(rating, text) => addReview(selected.id, rating, text)}
       />
     );
   }
@@ -1172,5 +1277,91 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#c2410c',
+  },
+  // Reviews
+  reviewsTitle: {
+    marginTop: 24,
+  },
+  reviewForm: {
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  reviewFormLabel: {
+    fontSize: 13,
+    color: '#8a7b6c',
+    marginBottom: 6,
+  },
+  starPickRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 12,
+  },
+  starPick: {
+    fontSize: 28,
+    color: '#dcc9b0',
+  },
+  starPickOn: {
+    color: '#c2410c',
+  },
+  reviewInput: {
+    backgroundColor: '#f6efe4',
+    borderWidth: 1,
+    borderColor: '#e4d8c6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#2b2019',
+    minHeight: 44,
+    marginBottom: 12,
+  },
+  reviewSubmit: {
+    backgroundColor: '#c2410c',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  reviewSubmitText: {
+    color: '#fdf6ee',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  reviewRow: {
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  reviewHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reviewAuthor: {
+    fontFamily: SERIF,
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2b2019',
+  },
+  reviewStars: {
+    fontSize: 13,
+    color: '#c2410c',
+  },
+  reviewText: {
+    fontSize: 14,
+    color: '#5c5044',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  reviewDate: {
+    fontSize: 11,
+    color: '#b3a695',
+    marginTop: 6,
   },
 });
