@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 // Serif face for the "editorial" headings (brand, restaurant names, titles).
 // Georgia is a built-in system serif, so no font install is needed for now —
@@ -16,7 +16,7 @@ const STORAGE_KEY = 'makanmana';
 // t('logout') looks up the current language. No i18n library needed for this.
 // (Adding Chinese later = one more block here.) Restaurant names / cuisines
 // stay untranslated — they're data, not UI chrome.
-type Lang = 'en' | 'ms';
+type Lang = 'en' | 'ms' | 'zh';
 const STRINGS: Record<Lang, Record<string, string>> = {
   en: {
     tagline: 'Where to eat near UCSI',
@@ -68,6 +68,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     savedPlaces: 'Saved places',
     savedHint: 'Tap the heart on any restaurant to save it here.',
     language: 'Language',
+    hours: 'Hours',
+    address: 'Address',
+    directions: 'Get directions',
   },
   ms: {
     tagline: 'Tempat makan berhampiran UCSI',
@@ -119,6 +122,63 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     savedPlaces: 'Tempat disimpan',
     savedHint: 'Ketik hati pada mana-mana restoran untuk menyimpannya di sini.',
     language: 'Bahasa',
+    hours: 'Waktu buka',
+    address: 'Alamat',
+    directions: 'Dapatkan arah',
+  },
+  zh: {
+    tagline: 'UCSI 附近去哪里吃',
+    hi: '你好，',
+    logout: '登出',
+    search: '搜索餐厅…',
+    halalOnly: '仅限清真',
+    all: '全部',
+    anyPrice: '任何价格',
+    place: '家',
+    places: '家',
+    noMatch: '没有符合这些筛选条件的餐厅。',
+    users: '用户',
+    kmAway: '公里外',
+    back: '返回',
+    saved: '♥  已收藏',
+    saveToFav: '♡  加入收藏',
+    menu: '菜单',
+    menuSoon: '菜单即将推出。',
+    reviews: '评论',
+    yourRating: '你的评分',
+    writeReview: '写评论（可选）',
+    postReview: '发布评论',
+    noReviews: '还没有评论 — 来做第一个吧！',
+    welcomeBack: '欢迎回来',
+    createAccount: '创建账户',
+    name: '姓名',
+    email: '电子邮箱',
+    password: '密码',
+    login: '登录',
+    signup: '注册',
+    toSignup: '新用户？创建账户',
+    toLogin: '已有账户？登录',
+    errName: '请输入你的姓名。',
+    errEmail: '请输入你的电子邮箱。',
+    errPassword: '请输入密码。',
+    errDup: '该电子邮箱已被注册。',
+    errWrong: '电子邮箱或密码错误。',
+    myAccount: '我的账户',
+    editName: '修改姓名',
+    saveName: '保存姓名',
+    yourName: '你的姓名',
+    account: '账户',
+    status: '状态',
+    active: '● 活跃',
+    memberSince: '注册于',
+    myActivity: '我的活动',
+    favourites: '收藏',
+    savedPlaces: '已收藏的地点',
+    savedHint: '点击任意餐厅的爱心即可收藏到这里。',
+    language: '语言',
+    hours: '营业时间',
+    address: '地址',
+    directions: '获取路线',
   },
 };
 
@@ -152,17 +212,23 @@ type Restaurant = {
   distanceKm: number;
   googleRating: number;  // out of 5, from Google
   userRating: number;    // out of 5, from MakanMana users
+  address: string;
+  hours: string;
   menu: MenuItem[];      // the dishes — we curate these by hand, one shop at a time
 };
 
 // 1) THE DATA — real eateries in Taman Connaught, the small area beside UCSI
-//    (read off the map). cuisine / halal / price / ratings are PLACEHOLDER
-//    values for now — verify the real ones later (Google ratings will come
-//    from the Google Places API). menu[] starts empty until we curate it.
+//    (read off the map). cuisine / halal / price / ratings / address / hours
+//    are PLACEHOLDER values for now — VERIFY the real ones before the demo
+//    (Google ratings will come from the Google Places API). The street names
+//    are right, but unit numbers and opening hours are guesses.
+//    menu[] starts empty until we curate it.
 const RESTAURANTS: Restaurant[] = [
   {
     id: '1', emoji: '🍟', name: "McDonald's Taman Connaught DT", cuisine: 'Fast Food',
     halal: true, priceLevel: 1, distanceKm: 0.4, googleRating: 4.1, userRating: 4.0,
+    address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
+    hours: '24 hours',
     // ⚠️ SAMPLE MENU — replace with verified items & prices.
     menu: [
       { name: 'McChicken', price: 9.55 },
@@ -174,21 +240,29 @@ const RESTAURANTS: Restaurant[] = [
   {
     id: '2', emoji: '🍛', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
     halal: true, priceLevel: 1, distanceKm: 0.5, googleRating: 4.0, userRating: 4.2,
+    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
+    hours: '07:00 – 23:00',
     menu: [], // to curate
   },
   {
     id: '3', emoji: '🍜', name: 'Tai Jie Taman Connaught', cuisine: 'Taiwanese',
     halal: false, priceLevel: 2, distanceKm: 0.5, googleRating: 4.3, userRating: 4.4,
+    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
+    hours: '11:00 – 21:00',
     menu: [], // to curate
   },
   {
     id: '4', emoji: '☕', name: 'Craft Cafe', cuisine: 'Café',
     halal: false, priceLevel: 2, distanceKm: 0.4, googleRating: 4.4, userRating: 4.5,
+    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
+    hours: '10:00 – 22:00',
     menu: [], // to curate
   },
   {
     id: '5', emoji: '🥙', name: 'Shawarma Restaurant', cuisine: 'Middle Eastern',
     halal: true, priceLevel: 2, distanceKm: 0.6, googleRating: 4.2, userRating: 4.3,
+    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
+    hours: '11:00 – 23:00',
     menu: [], // to curate
   },
 ];
@@ -325,6 +399,14 @@ function DetailScreen({
     setMyText('');
   }
 
+  // Hand off to Google Maps for navigation (the proposal says we don't build
+  // our own routing). ponytail: search by name + area — accurate enough
+  // without coordinates; swap to lat/lng if we later pull them from Places API.
+  function openDirections() {
+    const q = encodeURIComponent(`${restaurant.name}, Taman Connaught, Cheras`);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
+  }
+
   // Average of in-app reviews, if any (rounded to 1 decimal).
   const avg =
     reviews.length > 0
@@ -358,6 +440,18 @@ function DetailScreen({
           {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
         </View>
 
+        {/* Hours + address */}
+        <View style={styles.detailInfoCard}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('hours')}</Text>
+            <Text style={styles.infoValue}>{restaurant.hours}</Text>
+          </View>
+          <View style={[styles.infoRow, styles.infoRowLast]}>
+            <Text style={styles.infoLabel}>{t('address')}</Text>
+            <Text style={[styles.infoValue, styles.infoValueWrap]}>{restaurant.address}</Text>
+          </View>
+        </View>
+
         {/* Save toggle — fills in when saved */}
         <Pressable
           style={[styles.saveBtn, isFav && styles.saveBtnActive]}
@@ -366,6 +460,11 @@ function DetailScreen({
           <Text style={[styles.saveBtnText, isFav && styles.saveBtnTextActive]}>
             {isFav ? t('saved') : t('saveToFav')}
           </Text>
+        </Pressable>
+
+        {/* Hands off to Google Maps rather than building our own navigation */}
+        <Pressable style={styles.dirBtn} onPress={openDirections}>
+          <Text style={styles.dirBtnText}>➤  {t('directions')}</Text>
         </Pressable>
 
         <Text style={styles.sectionTitle}>{t('menu')}</Text>
@@ -652,6 +751,14 @@ function ProfileScreen({
           >
             <Text style={[styles.langBtnText, lang === 'ms' && styles.langBtnTextActive]}>
               Bahasa Melayu
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.langBtn, lang === 'zh' && styles.langBtnActive]}
+            onPress={() => onSetLang('zh')}
+          >
+            <Text style={[styles.langBtnText, lang === 'zh' && styles.langBtnTextActive]}>
+              中文
             </Text>
           </Pressable>
         </View>
@@ -1179,9 +1286,10 @@ const styles = StyleSheet.create({
     borderColor: '#c2410c',
   },
   langBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#8a7b6c',
+    textAlign: 'center',
   },
   langBtnTextActive: {
     color: '#fdf6ee',
@@ -1359,7 +1467,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
+    marginBottom: 10,
+  },
+  dirBtn: {
+    borderWidth: 1,
+    borderColor: '#dcc9b0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
     marginBottom: 24,
+  },
+  dirBtnText: {
+    color: '#c2410c',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  detailInfoCard: {
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  infoValueWrap: {
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 16,
   },
   saveBtnActive: {
     backgroundColor: '#c2410c',
