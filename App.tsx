@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 // Serif face for the "editorial" headings (brand, restaurant names, titles).
@@ -71,6 +71,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     hours: 'Hours',
     address: 'Address',
     directions: 'Get directions',
+    quickFind: 'Quick find',
+    chatHello: "Hi! Tell me what you feel like — try 'cheap halal cafe'.",
+    chatHelp: "Try words like 'cheap', 'halal', 'cafe' or 'taiwanese'.",
+    chatNoMatch: 'No matches — try fewer words.',
+    chatFound: "Here's what I found:",
+    chatPlaceholder: 'e.g. cheap halal cafe',
+    chatSend: 'Send',
   },
   ms: {
     tagline: 'Tempat makan berhampiran UCSI',
@@ -125,6 +132,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     hours: 'Waktu buka',
     address: 'Alamat',
     directions: 'Dapatkan arah',
+    quickFind: 'Cari pantas',
+    chatHello: "Hai! Beritahu saya apa yang anda mahu — cuba 'kafe halal murah'.",
+    chatHelp: "Cuba perkataan seperti 'murah', 'halal', 'kafe' atau 'taiwan'.",
+    chatNoMatch: 'Tiada padanan — cuba kurangkan perkataan.',
+    chatFound: 'Ini yang saya jumpa:',
+    chatPlaceholder: 'cth: kafe halal murah',
+    chatSend: 'Hantar',
   },
   zh: {
     tagline: 'UCSI 附近去哪里吃',
@@ -179,6 +193,13 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     hours: '营业时间',
     address: '地址',
     directions: '获取路线',
+    quickFind: '快速查找',
+    chatHello: '你好！告诉我你想吃什么 — 试试 "cheap halal cafe"。',
+    chatHelp: '试试 "cheap"、"halal"、"cafe"、"taiwanese" 这类词。',
+    chatNoMatch: '没有找到 — 试试减少关键词。',
+    chatFound: '为你找到这些：',
+    chatPlaceholder: '例如：cheap halal cafe',
+    chatSend: '发送',
   },
 };
 
@@ -275,6 +296,53 @@ const CUISINES = ['All', ...Array.from(new Set(RESTAURANTS.map((r) => r.cuisine)
 
 // Price filter options. 0 means "Any price"; 1/2/3 match priceLevel.
 const PRICE_OPTIONS = [0, 1, 2, 3];
+
+// THE CHATBOT "BRAIN" — keyword matching, exactly as scoped in the proposal
+// (a real-AI/LLM chatbot is explicitly future work). It spots price, halal
+// and cuisine words in the message and runs them through the same filtering
+// idea the pills use. English + a few Malay words; a fully multi-language
+// chatbot is out of scope per the proposal.
+function chatFind(query: string): { matches: Restaurant[]; understood: boolean } {
+  const s = query.toLowerCase();
+
+  let halal: boolean | null = null;
+  if (/non[- ]?halal/.test(s)) halal = false;
+  else if (/halal/.test(s)) halal = true;
+
+  let price: number | null = null;
+  if (/cheap|budget|murah/.test(s)) price = 1;
+  else if (/expensive|pricey|fancy|mahal/.test(s)) price = 3;
+
+  // word patterns -> the cuisine values used in our data
+  const CUISINE_WORDS: [RegExp, string][] = [
+    [/caf|kafe|coffee|kopi/, 'Café'],
+    [/taiwan/, 'Taiwanese'],
+    [/malay|nasi|kandar|mamak/, 'Malaysian'],
+    [/fast ?food|burger|fries|mcd/, 'Fast Food'],
+    [/middle|shawarma|kebab|arab/, 'Middle Eastern'],
+  ];
+  const cuisineHit = CUISINE_WORDS.find(([re]) => re.test(s));
+  const cuisine = cuisineHit ? cuisineHit[1] : null;
+
+  // "understood" = we recognised at least one keyword
+  const understood = halal !== null || price !== null || cuisine !== null;
+  const matches = !understood
+    ? []
+    : RESTAURANTS.filter(
+        (r) =>
+          (halal === null || r.halal === halal) &&
+          (price === null || r.priceLevel === price) &&
+          (cuisine === null || r.cuisine === cuisine)
+      );
+  return { matches, understood };
+}
+
+// One chat message. Bot messages can carry matching restaurants to show.
+type ChatMsg = {
+  from: 'user' | 'bot';
+  text: string;
+  results?: Restaurant[];
+};
 
 // HELPER FUNCTIONS
 function priceLabel(level: number) {
@@ -641,6 +709,102 @@ function AuthScreen({
   );
 }
 
+// THE QUICK-FIND CHAT SCREEN — message bubbles + an input row. The bot is
+// chatFind() above; tapping a result opens that restaurant's detail screen.
+function ChatScreen({
+  t,
+  onBack,
+  onOpenRestaurant,
+}: {
+  t: (k: string) => string;
+  onBack: () => void;
+  onOpenRestaurant: (restaurant: Restaurant) => void;
+}) {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([{ from: 'bot', text: t('chatHello') }]);
+  const [input, setInput] = useState('');
+  // A ref lets us reach the ScrollView itself, to auto-scroll to the bottom.
+  const scrollRef = useRef<ScrollView>(null);
+
+  function send() {
+    const q = input.trim();
+    if (q === '') return;
+    const { matches, understood } = chatFind(q);
+    const replyText = !understood
+      ? t('chatHelp')
+      : matches.length === 0
+        ? t('chatNoMatch')
+        : t('chatFound');
+    setMsgs((prev) => [
+      ...prev,
+      { from: 'user', text: q },
+      { from: 'bot', text: replyText, results: understood ? matches.slice(0, 5) : undefined },
+    ]);
+    setInput('');
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable onPress={onBack}>
+          <Text style={styles.back}>← {t('back')}</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>{t('quickFind')}</Text>
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.chatBody}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+      >
+        {msgs.map((m, i) => (
+          <View key={i} style={styles.chatMsgBlock}>
+            <View style={m.from === 'user' ? styles.bubbleUser : styles.bubbleBot}>
+              <Text style={m.from === 'user' ? styles.bubbleUserText : styles.bubbleBotText}>
+                {m.text}
+              </Text>
+            </View>
+
+            {/* Matching restaurants under the bot's reply (reuses saved-row look) */}
+            {m.results &&
+              m.results.map((r) => (
+                <Pressable key={r.id} style={styles.savedRow} onPress={() => onOpenRestaurant(r)}>
+                  <View style={styles.savedThumb}>
+                    <Text style={styles.savedThumbText}>{r.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={styles.savedName}>{r.name}</Text>
+                    <Text style={styles.savedMeta}>
+                      {r.cuisine} · {priceLabel(r.priceLevel)}
+                      {r.halal ? ' · Halal' : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.savedChevron}>›</Text>
+                </Pressable>
+              ))}
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Input row pinned under the message list */}
+      <View style={styles.chatInputRow}>
+        <TextInput
+          style={styles.chatInput}
+          placeholder={t('chatPlaceholder')}
+          placeholderTextColor="#b3a695"
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={send}
+        />
+        <Pressable style={styles.chatSendBtn} onPress={send}>
+          <Text style={styles.chatSendText}>{t('chatSend')}</Text>
+        </Pressable>
+      </View>
+
+      <StatusBar style="auto" />
+    </View>
+  );
+}
+
 // THE PROFILE / ACCOUNT SCREEN — the user's dashboard. Shows their details,
 // account status, and activity stats, and lets them edit their name or log out.
 function ProfileScreen({
@@ -821,6 +985,7 @@ export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([]); // everyone who signed up (in memory)
   const [user, setUser] = useState<Account | null>(null);  // who's logged in? null = nobody
   const [showProfile, setShowProfile] = useState(false);   // is the account screen open?
+  const [showChat, setShowChat] = useState(false);         // is the quick-find chat open?
 
   // LANGUAGE — current language + the translate helper. t('key') returns the
   // string for the current language, falling back to English then the key.
@@ -946,6 +1111,20 @@ export default function App() {
     );
   }
 
+  // Quick-find chat open -> show it instead of the list.
+  if (showChat) {
+    return (
+      <ChatScreen
+        t={t}
+        onBack={() => setShowChat(false)}
+        onOpenRestaurant={(r) => {
+          setShowChat(false);
+          setSelected(r);
+        }}
+      />
+    );
+  }
+
   // If a restaurant is open, show its detail screen instead of the list.
   if (selected) {
     return (
@@ -1067,6 +1246,11 @@ export default function App() {
           <Text style={styles.empty}>{t('noMatch')}</Text>
         )}
       </ScrollView>
+
+      {/* Floating button that opens the quick-find chatbot */}
+      <Pressable style={styles.fab} onPress={() => setShowChat(true)}>
+        <Text style={styles.fabText}>✦ {t('quickFind')}</Text>
+      </Pressable>
 
       <StatusBar style="auto" />
     </View>
@@ -1741,5 +1925,87 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#b3a695',
     marginTop: 6,
+  },
+  // Quick-find chat
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 24,
+    backgroundColor: '#c2410c',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+  },
+  fabText: {
+    color: '#fdf6ee',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  chatBody: {
+    padding: 16,
+    flexGrow: 1,
+  },
+  chatMsgBlock: {
+    width: '100%',
+  },
+  bubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#c2410c',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+    maxWidth: '80%',
+  },
+  bubbleUserText: {
+    color: '#fdf6ee',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bubbleBot: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+    maxWidth: '85%',
+  },
+  bubbleBotText: {
+    color: '#2b2019',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ece2d4',
+    backgroundColor: '#faf6f0',
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#e4d8c6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#2b2019',
+  },
+  chatSendBtn: {
+    backgroundColor: '#c2410c',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+  },
+  chatSendText: {
+    color: '#fdf6ee',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
