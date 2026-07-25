@@ -78,6 +78,19 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     chatFound: "Here's what I found:",
     chatPlaceholder: 'e.g. cheap halal cafe',
     chatSend: 'Send',
+    bookTable: 'Book a table',
+    bookDay: 'Day',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    bookTime: 'Time',
+    partySize: 'Party size',
+    people: 'people',
+    confirmBooking: 'Confirm booking',
+    bookingConfirmed: 'Booking confirmed!',
+    bookingNote: 'This is a prototype booking — no table is actually reserved.',
+    done: 'Done',
+    myBookings: 'My bookings',
+    noBookings: 'No bookings yet.',
   },
   ms: {
     tagline: 'Tempat makan berhampiran UCSI',
@@ -139,6 +152,19 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     chatFound: 'Ini yang saya jumpa:',
     chatPlaceholder: 'cth: kafe halal murah',
     chatSend: 'Hantar',
+    bookTable: 'Tempah meja',
+    bookDay: 'Hari',
+    today: 'Hari ini',
+    tomorrow: 'Esok',
+    bookTime: 'Masa',
+    partySize: 'Bilangan orang',
+    people: 'orang',
+    confirmBooking: 'Sahkan tempahan',
+    bookingConfirmed: 'Tempahan disahkan!',
+    bookingNote: 'Ini tempahan prototaip — tiada meja sebenar ditempah.',
+    done: 'Selesai',
+    myBookings: 'Tempahan saya',
+    noBookings: 'Tiada tempahan lagi.',
   },
   zh: {
     tagline: 'UCSI 附近去哪里吃',
@@ -200,6 +226,19 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     chatFound: '为你找到这些：',
     chatPlaceholder: '例如：cheap halal cafe',
     chatSend: '发送',
+    bookTable: '预订餐桌',
+    bookDay: '日期',
+    today: '今天',
+    tomorrow: '明天',
+    bookTime: '时间',
+    partySize: '人数',
+    people: '人',
+    confirmBooking: '确认预订',
+    bookingConfirmed: '预订已确认！',
+    bookingNote: '这是原型预订 — 并未真正预留餐桌。',
+    done: '完成',
+    myBookings: '我的预订',
+    noBookings: '还没有预订。',
   },
 };
 
@@ -344,6 +383,21 @@ type ChatMsg = {
   results?: Restaurant[];
 };
 
+// A simulated table booking. Prototype only — nothing is really reserved.
+type Booking = {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  userEmail: string;
+  day: string;   // 'today' | 'tomorrow' (a translation key)
+  time: string;  // e.g. '19:30'
+  partySize: number;
+  at: number;
+};
+
+// Preset time slots so we don't need a date/time picker library.
+const TIME_SLOTS = ['11:30', '12:30', '13:30', '18:30', '19:30', '20:30'];
+
 // HELPER FUNCTIONS
 function priceLabel(level: number) {
   return '$'.repeat(level); // priceLevel 2 -> "$$"
@@ -446,6 +500,7 @@ function DetailScreen({
   onToggleFav,
   reviews,
   onAddReview,
+  onBookTable,
   t,
 }: {
   restaurant: Restaurant;
@@ -454,6 +509,7 @@ function DetailScreen({
   onToggleFav: () => void;
   reviews: Review[];              // only THIS restaurant's reviews
   onAddReview: (rating: number, text: string) => void;
+  onBookTable: () => void;
   t: (k: string) => string;
 }) {
   // Local state for the little "write a review" form.
@@ -533,6 +589,11 @@ function DetailScreen({
         {/* Hands off to Google Maps rather than building our own navigation */}
         <Pressable style={styles.dirBtn} onPress={openDirections}>
           <Text style={styles.dirBtnText}>➤  {t('directions')}</Text>
+        </Pressable>
+
+        {/* Simulated table booking */}
+        <Pressable style={styles.bookBtn} onPress={onBookTable}>
+          <Text style={styles.bookBtnText}>{t('bookTable')}</Text>
         </Pressable>
 
         <Text style={styles.sectionTitle}>{t('menu')}</Text>
@@ -709,6 +770,102 @@ function AuthScreen({
   );
 }
 
+// THE BOOKING SCREEN — pick day, time and party size, confirm. It stores the
+// booking (via onBook) and then shows a confirmation. Simulated only.
+function BookingScreen({
+  restaurant,
+  t,
+  onBack,
+  onBook,
+}: {
+  restaurant: Restaurant;
+  t: (k: string) => string;
+  onBack: () => void;
+  onBook: (day: string, time: string, partySize: number) => void;
+}) {
+  const [day, setDay] = useState('today');
+  const [time, setTime] = useState('19:30');
+  const [partySize, setPartySize] = useState(2);
+  const [confirmed, setConfirmed] = useState(false);
+
+  function confirm() {
+    onBook(day, time, partySize);
+    setConfirmed(true);
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable onPress={onBack}>
+          <Text style={styles.back}>← {t('back')}</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>{t('bookTable')}</Text>
+        <Text style={styles.headerSubtitle}>{restaurant.name}</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.detailBody}>
+        {confirmed ? (
+          // CONFIRMATION
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTick}>✓</Text>
+            <Text style={styles.confirmTitle}>{t('bookingConfirmed')}</Text>
+            <Text style={styles.confirmLine}>{restaurant.name}</Text>
+            <Text style={styles.confirmLine}>
+              {t(day)} · {time} · {partySize} {t('people')}
+            </Text>
+            <Text style={styles.confirmNote}>{t('bookingNote')}</Text>
+            <Pressable style={styles.profileBtn} onPress={onBack}>
+              <Text style={styles.profileBtnText}>{t('done')}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          // THE FORM
+          <>
+            <Text style={styles.sectionTitle}>{t('bookDay')}</Text>
+            <View style={styles.filterRow}>
+              {['today', 'tomorrow'].map((d) => (
+                <FilterPill key={d} label={t(d)} active={day === d} onPress={() => setDay(d)} />
+              ))}
+            </View>
+
+            <Text style={[styles.sectionTitle, styles.bookSectionGap]}>{t('bookTime')}</Text>
+            <View style={styles.slotWrap}>
+              {TIME_SLOTS.map((s) => (
+                <FilterPill key={s} label={s} active={time === s} onPress={() => setTime(s)} />
+              ))}
+            </View>
+
+            <Text style={[styles.sectionTitle, styles.bookSectionGap]}>{t('partySize')}</Text>
+            <View style={styles.stepperRow}>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => setPartySize((n) => Math.max(1, n - 1))}
+              >
+                <Text style={styles.stepperBtnText}>−</Text>
+              </Pressable>
+              <Text style={styles.stepperValue}>
+                {partySize} {t('people')}
+              </Text>
+              <Pressable
+                style={styles.stepperBtn}
+                onPress={() => setPartySize((n) => Math.min(12, n + 1))}
+              >
+                <Text style={styles.stepperBtnText}>+</Text>
+              </Pressable>
+            </View>
+
+            <Pressable style={[styles.profileBtn, styles.bookConfirmBtn]} onPress={confirm}>
+              <Text style={styles.profileBtnText}>{t('confirmBooking')}</Text>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+
+      <StatusBar style="auto" />
+    </View>
+  );
+}
+
 // THE QUICK-FIND CHAT SCREEN — message bubbles + an input row. The bot is
 // chatFind() above; tapping a result opens that restaurant's detail screen.
 function ChatScreen({
@@ -811,6 +968,7 @@ function ProfileScreen({
   user,
   favourites,
   reviewCount,
+  bookings,
   onOpenRestaurant,
   onUpdateName,
   onLogout,
@@ -822,6 +980,7 @@ function ProfileScreen({
   user: Account;
   favourites: Restaurant[];
   reviewCount: number;
+  bookings: Booking[];
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onUpdateName: (name: string) => void;
   onLogout: () => void;
@@ -961,6 +1120,21 @@ function ProfileScreen({
           ))
         )}
 
+        {/* My bookings (simulated) */}
+        <Text style={styles.sectionTitle}>{t('myBookings')}</Text>
+        {bookings.length === 0 ? (
+          <Text style={styles.hint}>{t('noBookings')}</Text>
+        ) : (
+          bookings.map((b) => (
+            <View key={b.id} style={styles.bookingRow}>
+              <Text style={styles.savedName}>{b.restaurantName}</Text>
+              <Text style={styles.savedMeta}>
+                {t(b.day)} · {b.time} · {b.partySize} {t('people')}
+              </Text>
+            </View>
+          ))
+        )}
+
         <Pressable style={styles.logoutBtn} onPress={onLogout}>
           <Text style={styles.logoutBtnText}>{t('logout')}</Text>
         </Pressable>
@@ -986,6 +1160,7 @@ export default function App() {
   const [user, setUser] = useState<Account | null>(null);  // who's logged in? null = nobody
   const [showProfile, setShowProfile] = useState(false);   // is the account screen open?
   const [showChat, setShowChat] = useState(false);         // is the quick-find chat open?
+  const [showBooking, setShowBooking] = useState(false);   // is the booking screen open?
 
   // LANGUAGE — current language + the translate helper. t('key') returns the
   // string for the current language, falling back to English then the key.
@@ -1017,6 +1192,23 @@ export default function App() {
     setReviews((prev) => [review, ...prev]); // newest first
   }
 
+  // BOOKINGS — simulated table bookings, same shared-state + persist pattern.
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  function addBooking(restaurant: Restaurant, day: string, time: string, partySize: number) {
+    if (!user) return;
+    const booking: Booking = {
+      id: String(Date.now()),
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      userEmail: user.email,
+      day,
+      time,
+      partySize,
+      at: Date.now(),
+    };
+    setBookings((prev) => [booking, ...prev]);
+  }
+
   // PERSISTENCE — load saved data once on start, then save on every change.
   const [loaded, setLoaded] = useState(false);
 
@@ -1029,6 +1221,7 @@ export default function App() {
           setAccounts(data.accounts ?? []);
           setFavourites(data.favourites ?? []);
           setReviews(data.reviews ?? []);
+          setBookings(data.bookings ?? []);
           setUser(data.user ?? null);
           setLang(data.lang ?? 'en');
         }
@@ -1043,9 +1236,9 @@ export default function App() {
     if (!loaded) return; // don't overwrite storage before the initial load finishes
     AsyncStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ accounts, favourites, reviews, user, lang })
+      JSON.stringify({ accounts, favourites, reviews, bookings, user, lang })
     );
-  }, [loaded, accounts, favourites, reviews, user, lang]);
+  }, [loaded, accounts, favourites, reviews, bookings, user, lang]);
 
   // Sign up: reject a duplicate email, otherwise save the account and log in.
   function handleSignup(name: string, email: string, password: string) {
@@ -1094,6 +1287,7 @@ export default function App() {
         user={user}
         favourites={RESTAURANTS.filter((r) => favourites.includes(r.id))}
         reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
+        bookings={bookings.filter((b) => b.userEmail === user.email)}
         onOpenRestaurant={(r) => {
           setShowProfile(false);
           setSelected(r);
@@ -1125,6 +1319,18 @@ export default function App() {
     );
   }
 
+  // Booking screen open (for the selected restaurant).
+  if (showBooking && selected) {
+    return (
+      <BookingScreen
+        restaurant={selected}
+        t={t}
+        onBack={() => setShowBooking(false)}
+        onBook={(day, time, partySize) => addBooking(selected, day, time, partySize)}
+      />
+    );
+  }
+
   // If a restaurant is open, show its detail screen instead of the list.
   if (selected) {
     return (
@@ -1135,6 +1341,7 @@ export default function App() {
         onToggleFav={() => toggleFavourite(selected.id)}
         reviews={reviews.filter((rv) => rv.restaurantId === selected.id)}
         onAddReview={(rating, text) => addReview(selected.id, rating, text)}
+        onBookTable={() => setShowBooking(true)}
         t={t}
       />
     );
@@ -1665,6 +1872,95 @@ const styles = StyleSheet.create({
     color: '#c2410c',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  bookBtn: {
+    backgroundColor: '#c2410c',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  bookBtnText: {
+    color: '#fdf6ee',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  bookSectionGap: {
+    marginTop: 20,
+  },
+  slotWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
+  stepperBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#dcc9b0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBtnText: {
+    fontSize: 22,
+    color: '#c2410c',
+    fontWeight: 'bold',
+  },
+  stepperValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2b2019',
+    minWidth: 90,
+    textAlign: 'center',
+  },
+  bookConfirmBtn: {
+    marginTop: 28,
+  },
+  confirmCard: {
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  confirmTick: {
+    fontSize: 40,
+    color: '#5f7a4d',
+    marginBottom: 8,
+  },
+  confirmTitle: {
+    fontFamily: SERIF,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2b2019',
+    marginBottom: 12,
+  },
+  confirmLine: {
+    fontSize: 15,
+    color: '#5c5044',
+    marginBottom: 2,
+  },
+  confirmNote: {
+    fontSize: 12,
+    color: '#b3a695',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  bookingRow: {
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#ece2d4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
   detailInfoCard: {
     backgroundColor: '#fffdfa',
