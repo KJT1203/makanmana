@@ -91,6 +91,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     done: 'Done',
     myBookings: 'My bookings',
     noBookings: 'No bookings yet.',
+    vegetarian: 'Vegetarian',
+    vegan: 'Vegan',
   },
   ms: {
     tagline: 'Tempat makan berhampiran UCSI',
@@ -165,6 +167,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     done: 'Selesai',
     myBookings: 'Tempahan saya',
     noBookings: 'Tiada tempahan lagi.',
+    vegetarian: 'Vegetarian',
+    vegan: 'Vegan',
   },
   zh: {
     tagline: 'UCSI 附近去哪里吃',
@@ -239,6 +243,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     done: '完成',
     myBookings: '我的预订',
     noBookings: '还没有预订。',
+    vegetarian: '素食',
+    vegan: '纯素',
   },
 };
 
@@ -274,6 +280,7 @@ type Restaurant = {
   userRating: number;    // out of 5, from MakanMana users
   address: string;
   hours: string;
+  tags: string[];        // dietary tags, e.g. 'Vegetarian', 'Vegan'
   menu: MenuItem[];      // the dishes — we curate these by hand, one shop at a time
 };
 
@@ -289,6 +296,7 @@ const RESTAURANTS: Restaurant[] = [
     halal: true, priceLevel: 1, distanceKm: 0.4, googleRating: 4.1, userRating: 4.0,
     address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
     hours: '24 hours',
+    tags: [],
     // ⚠️ SAMPLE MENU — replace with verified items & prices.
     menu: [
       { name: 'McChicken', price: 9.55 },
@@ -302,6 +310,7 @@ const RESTAURANTS: Restaurant[] = [
     halal: true, priceLevel: 1, distanceKm: 0.5, googleRating: 4.0, userRating: 4.2,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '07:00 – 23:00',
+    tags: ['Vegetarian'],
     menu: [], // to curate
   },
   {
@@ -309,6 +318,7 @@ const RESTAURANTS: Restaurant[] = [
     halal: false, priceLevel: 2, distanceKm: 0.5, googleRating: 4.3, userRating: 4.4,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '11:00 – 21:00',
+    tags: ['Vegetarian'],
     menu: [], // to curate
   },
   {
@@ -316,6 +326,7 @@ const RESTAURANTS: Restaurant[] = [
     halal: false, priceLevel: 2, distanceKm: 0.4, googleRating: 4.4, userRating: 4.5,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '10:00 – 22:00',
+    tags: ['Vegetarian', 'Vegan'],
     menu: [], // to curate
   },
   {
@@ -323,6 +334,7 @@ const RESTAURANTS: Restaurant[] = [
     halal: true, priceLevel: 2, distanceKm: 0.6, googleRating: 4.2, userRating: 4.3,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '11:00 – 23:00',
+    tags: ['Vegetarian'],
     menu: [], // to curate
   },
 ];
@@ -335,6 +347,9 @@ const CUISINES = ['All', ...Array.from(new Set(RESTAURANTS.map((r) => r.cuisine)
 
 // Price filter options. 0 means "Any price"; 1/2/3 match priceLevel.
 const PRICE_OPTIONS = [0, 1, 2, 3];
+
+// Dietary tags for the filter: 'All' first, then each unique tag in the data.
+const DIET_TAGS = ['All', ...Array.from(new Set(RESTAURANTS.flatMap((r) => r.tags)))];
 
 // THE CHATBOT "BRAIN" — keyword matching, exactly as scoped in the proposal
 // (a real-AI/LLM chatbot is explicitly future work). It spots price, halal
@@ -460,6 +475,9 @@ function RestaurantCard({
             <Text style={styles.dot}>·</Text>
             <Text style={styles.price}>{priceLabel(restaurant.priceLevel)}</Text>
             {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
+            {restaurant.tags.map((tag) => (
+              <Text key={tag} style={styles.tagPill}>{t(tag.toLowerCase())}</Text>
+            ))}
           </View>
 
           <View style={styles.ratingRow}>
@@ -562,6 +580,9 @@ function DetailScreen({
             {reviews.length ? ` (${reviews.length})` : ''}
           </Text>
           {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
+          {restaurant.tags.map((tag) => (
+            <Text key={tag} style={styles.tagPill}>{t(tag.toLowerCase())}</Text>
+          ))}
         </View>
 
         {/* Hours + address */}
@@ -1151,6 +1172,7 @@ export default function App() {
   const [halalOnly, setHalalOnly] = useState(false);
   const [cuisine, setCuisine] = useState('All');
   const [price, setPrice] = useState(0); // 0 = Any
+  const [diet, setDiet] = useState('All'); // dietary tag filter
 
   // NAVIGATION state: which restaurant is open? null = none (show the list).
   const [selected, setSelected] = useState<Restaurant | null>(null);
@@ -1356,6 +1378,7 @@ export default function App() {
     if (halalOnly && !r.halal) return false;
     if (cuisine !== 'All' && r.cuisine !== cuisine) return false;
     if (price !== 0 && r.priceLevel !== price) return false;
+    if (diet !== 'All' && !r.tags.includes(diet)) return false;
     return true;
   });
 
@@ -1411,7 +1434,7 @@ export default function App() {
           </View>
         </ScrollView>
 
-        <View style={[styles.filterRow, styles.lastRow]}>
+        <View style={[styles.filterRow, DIET_TAGS.length <= 1 && styles.lastRow]}>
           {PRICE_OPTIONS.map((p) => (
             <FilterPill
               key={p}
@@ -1421,6 +1444,20 @@ export default function App() {
             />
           ))}
         </View>
+
+        {/* Dietary tags (only if the data has any) */}
+        {DIET_TAGS.length > 1 && (
+          <View style={[styles.filterRow, styles.lastRow]}>
+            {DIET_TAGS.map((d) => (
+              <FilterPill
+                key={d}
+                label={d === 'All' ? t('all') : t(d.toLowerCase())}
+                active={diet === d}
+                onPress={() => setDiet(d)}
+              />
+            ))}
+          </View>
+        )}
       </View>
 
       {/* THE LIST — tapping a card opens it by storing it in `selected` */}
@@ -2081,6 +2118,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
     marginLeft: 2,
+  },
+  tagPill: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#3f7a6a',
+    backgroundColor: '#e0eeea',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   ratingRow: {
     flexDirection: 'row',
