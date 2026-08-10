@@ -53,6 +53,11 @@ type Booking = {
   at: number;
 };
 
+// A saved restaurant, tied to the account that saved it. Storing the owner
+// here (rather than a bare list of ids) keeps favourites private to each
+// account when several people share a device.
+type Favourite = { userEmail: string; restaurantId: string };
+
 type ChatMsg = { from: 'user' | 'bot'; text: string; results?: Restaurant[] };
 
 type Account = { name: string; email: string; password: string; joinedAt: number };
@@ -1192,10 +1197,18 @@ export default function App() {
   const t = (k: string) => STRINGS[lang][k] ?? STRINGS.en[k] ?? k;
 
   // FAVOURITES — one shared list read by every screen.
-  const [favourites, setFavourites] = useState<string[]>([]);
+  const [favourites, setFavourites] = useState<Favourite[]>([]);
+
+  // The signed-in account's saved restaurant ids.
+  const myFavourites = user
+    ? favourites.filter((f) => f.userEmail === user.email).map((f) => f.restaurantId)
+    : [];
+
   function toggleFavourite(id: string) {
+    if (!user) return;
+    const mine = (f: Favourite) => f.userEmail === user.email && f.restaurantId === id;
     setFavourites((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.some(mine) ? prev.filter((f) => !mine(f)) : [...prev, { userEmail: user.email, restaurantId: id }]
     );
   }
 
@@ -1246,7 +1259,16 @@ export default function App() {
         if (raw) {
           const data = JSON.parse(raw);
           setAccounts(data.accounts ?? []);
-          setFavourites(data.favourites ?? []);
+          // Older builds stored favourites as a bare list of restaurant ids.
+          // Attach any of those to the account being restored so they survive.
+          const savedFavs = data.favourites ?? [];
+          setFavourites(
+            savedFavs.map((f: string | Favourite) =>
+              typeof f === 'string'
+                ? { userEmail: data.user?.email ?? '', restaurantId: f }
+                : f
+            )
+          );
           setReviews(data.reviews ?? []);
           setBookings(data.bookings ?? []);
           setUser(data.user ?? null);
@@ -1320,7 +1342,7 @@ export default function App() {
       <DetailScreen
         restaurant={selected}
         onBack={() => setSelected(null)}
-        isFav={favourites.includes(selected.id)}
+        isFav={myFavourites.includes(selected.id)}
         onToggleFav={() => toggleFavourite(selected.id)}
         reviews={reviews.filter((rv) => rv.restaurantId === selected.id)}
         onAddReview={(rating, text) => addReview(selected.id, rating, text)}
@@ -1340,7 +1362,7 @@ export default function App() {
     return true;
   });
 
-  const savedList = RESTAURANTS.filter((r) => favourites.includes(r.id));
+  const savedList = RESTAURANTS.filter((r) => myFavourites.includes(r.id));
 
   function renderRow(r: Restaurant) {
     const { avg, count } = reviewStats(reviews, r.id);
@@ -1350,7 +1372,7 @@ export default function App() {
         restaurant={r}
         avg={avg}
         count={count}
-        isFav={favourites.includes(r.id)}
+        isFav={myFavourites.includes(r.id)}
         onPress={() => openRestaurant(r)}
         onToggleFav={() => toggleFavourite(r.id)}
         t={t}
@@ -1472,7 +1494,7 @@ export default function App() {
       {tab === 'profile' && (
         <ProfileScreen
           user={user}
-          favCount={favourites.length}
+          favCount={myFavourites.length}
           reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
           bookings={bookings.filter((b) => b.userEmail === user.email)}
           onUpdateName={handleUpdateName}
