@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-07-25",
+    "scope": "app",
+    "genre": "modern-minimal",
+    "macrostructure": "Workbench (app screens) / Long Document (detail)",
+    "theme": "custom",
+    "theme_axes": "light paper / system-sans display / cool-green accent",
+    "vibe": "clean professional food-discovery utility",
+    "enrichment": "none",
+    "nav": "bottom tab bar (label-only, 4 tabs)",
+    "brief": "MakanMana redesign — de-slop the UI, UX-focused, design.md system introduced"
+  }
+]

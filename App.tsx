@@ -1,298 +1,73 @@
+/* Hallmark · genre: modern-minimal · theme: Verdant (custom) · design-system: design.md
+ * designed-as-app · nav: bottom tab bar (label-only) · motion: press-states only
+ * Principle: SELECTION IS INK, ACTION IS GREEN — accent stays under ~5% of screen.
+ * Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { color, fontFamily, radius, size, space, weight } from './theme';
 
-// Serif face for the "editorial" headings (brand, restaurant names, titles).
-// Georgia is a built-in system serif, so no font install is needed for now —
-// later we can swap in a nicer Google Font (e.g. Lora) via expo-font.
-const SERIF = 'Georgia';
-
-// One key holds everything we persist (accounts, favourites, reviews, user,
-// language) as a single JSON blob — one read on start, one write on change.
+// One key holds everything we persist as a single JSON blob.
 const STORAGE_KEY = 'makanmana';
 
-// LANGUAGES — English + Bahasa Melayu. A plain dictionary keyed by a short id;
-// t('logout') looks up the current language. No i18n library needed for this.
-// (Adding Chinese later = one more block here.) Restaurant names / cuisines
-// stay untranslated — they're data, not UI chrome.
-type Lang = 'en' | 'ms' | 'zh';
-const STRINGS: Record<Lang, Record<string, string>> = {
-  en: {
-    tagline: 'Where to eat near UCSI',
-    hi: 'Hi,',
-    logout: 'Log out',
-    search: 'Search restaurants…',
-    halalOnly: 'Halal only',
-    all: 'All',
-    anyPrice: 'Any price',
-    place: 'place',
-    places: 'places',
-    noMatch: 'No places match these filters.',
-    users: 'users',
-    kmAway: 'km away',
-    back: 'Back',
-    saved: '♥  Saved',
-    saveToFav: '♡  Save to favourites',
-    menu: 'Menu',
-    menuSoon: 'Menu coming soon.',
-    reviews: 'Reviews',
-    yourRating: 'Your rating',
-    writeReview: 'Write a review (optional)',
-    postReview: 'Post review',
-    noReviews: 'No reviews yet — be the first!',
-    welcomeBack: 'Welcome back',
-    createAccount: 'Create account',
-    name: 'Name',
-    email: 'Email',
-    password: 'Password',
-    login: 'Log in',
-    signup: 'Sign up',
-    toSignup: 'New here? Create an account',
-    toLogin: 'Already have an account? Log in',
-    errName: 'Please enter your name.',
-    errEmail: 'Please enter your email.',
-    errPassword: 'Please enter a password.',
-    errDup: 'That email is already registered.',
-    errWrong: 'Wrong email or password.',
-    myAccount: 'My Account',
-    editName: 'Edit name',
-    saveName: 'Save name',
-    yourName: 'Your name',
-    account: 'Account',
-    status: 'Status',
-    active: '● Active',
-    memberSince: 'Member since',
-    myActivity: 'My activity',
-    favourites: 'Favourites',
-    savedPlaces: 'Saved places',
-    savedHint: 'Tap the heart on any restaurant to save it here.',
-    language: 'Language',
-    hours: 'Hours',
-    address: 'Address',
-    directions: 'Get directions',
-    quickFind: 'Quick find',
-    chatHello: "Hi! Tell me what you feel like — try 'cheap halal cafe'.",
-    chatHelp: "Try words like 'cheap', 'halal', 'cafe' or 'taiwanese'.",
-    chatNoMatch: 'No matches — try fewer words.',
-    chatFound: "Here's what I found:",
-    chatPlaceholder: 'e.g. cheap halal cafe',
-    chatSend: 'Send',
-    bookTable: 'Book a table',
-    bookDay: 'Day',
-    today: 'Today',
-    tomorrow: 'Tomorrow',
-    bookTime: 'Time',
-    partySize: 'Party size',
-    people: 'people',
-    confirmBooking: 'Confirm booking',
-    bookingConfirmed: 'Booking confirmed!',
-    bookingNote: 'This is a prototype booking — no table is actually reserved.',
-    done: 'Done',
-    myBookings: 'My bookings',
-    noBookings: 'No bookings yet.',
-    vegetarian: 'Vegetarian',
-    vegan: 'Vegan',
-  },
-  ms: {
-    tagline: 'Tempat makan berhampiran UCSI',
-    hi: 'Hai,',
-    logout: 'Log keluar',
-    search: 'Cari restoran…',
-    halalOnly: 'Halal sahaja',
-    all: 'Semua',
-    anyPrice: 'Semua harga',
-    place: 'tempat',
-    places: 'tempat',
-    noMatch: 'Tiada tempat sepadan dengan penapis ini.',
-    users: 'pengguna',
-    kmAway: 'km dari sini',
-    back: 'Kembali',
-    saved: '♥  Disimpan',
-    saveToFav: '♡  Simpan ke kegemaran',
-    menu: 'Menu',
-    menuSoon: 'Menu akan datang.',
-    reviews: 'Ulasan',
-    yourRating: 'Penilaian anda',
-    writeReview: 'Tulis ulasan (pilihan)',
-    postReview: 'Hantar ulasan',
-    noReviews: 'Tiada ulasan lagi — jadilah yang pertama!',
-    welcomeBack: 'Selamat kembali',
-    createAccount: 'Cipta akaun',
-    name: 'Nama',
-    email: 'E-mel',
-    password: 'Kata laluan',
-    login: 'Log masuk',
-    signup: 'Daftar',
-    toSignup: 'Baharu di sini? Cipta akaun',
-    toLogin: 'Sudah ada akaun? Log masuk',
-    errName: 'Sila masukkan nama anda.',
-    errEmail: 'Sila masukkan e-mel anda.',
-    errPassword: 'Sila masukkan kata laluan.',
-    errDup: 'E-mel itu telah didaftarkan.',
-    errWrong: 'E-mel atau kata laluan salah.',
-    myAccount: 'Akaun Saya',
-    editName: 'Edit nama',
-    saveName: 'Simpan nama',
-    yourName: 'Nama anda',
-    account: 'Akaun',
-    status: 'Status',
-    active: '● Aktif',
-    memberSince: 'Ahli sejak',
-    myActivity: 'Aktiviti saya',
-    favourites: 'Kegemaran',
-    savedPlaces: 'Tempat disimpan',
-    savedHint: 'Ketik hati pada mana-mana restoran untuk menyimpannya di sini.',
-    language: 'Bahasa',
-    hours: 'Waktu buka',
-    address: 'Alamat',
-    directions: 'Dapatkan arah',
-    quickFind: 'Cari pantas',
-    chatHello: "Hai! Beritahu saya apa yang anda mahu — cuba 'kafe halal murah'.",
-    chatHelp: "Cuba perkataan seperti 'murah', 'halal', 'kafe' atau 'taiwan'.",
-    chatNoMatch: 'Tiada padanan — cuba kurangkan perkataan.',
-    chatFound: 'Ini yang saya jumpa:',
-    chatPlaceholder: 'cth: kafe halal murah',
-    chatSend: 'Hantar',
-    bookTable: 'Tempah meja',
-    bookDay: 'Hari',
-    today: 'Hari ini',
-    tomorrow: 'Esok',
-    bookTime: 'Masa',
-    partySize: 'Bilangan orang',
-    people: 'orang',
-    confirmBooking: 'Sahkan tempahan',
-    bookingConfirmed: 'Tempahan disahkan!',
-    bookingNote: 'Ini tempahan prototaip — tiada meja sebenar ditempah.',
-    done: 'Selesai',
-    myBookings: 'Tempahan saya',
-    noBookings: 'Tiada tempahan lagi.',
-    vegetarian: 'Vegetarian',
-    vegan: 'Vegan',
-  },
-  zh: {
-    tagline: 'UCSI 附近去哪里吃',
-    hi: '你好，',
-    logout: '登出',
-    search: '搜索餐厅…',
-    halalOnly: '仅限清真',
-    all: '全部',
-    anyPrice: '任何价格',
-    place: '家',
-    places: '家',
-    noMatch: '没有符合这些筛选条件的餐厅。',
-    users: '用户',
-    kmAway: '公里外',
-    back: '返回',
-    saved: '♥  已收藏',
-    saveToFav: '♡  加入收藏',
-    menu: '菜单',
-    menuSoon: '菜单即将推出。',
-    reviews: '评论',
-    yourRating: '你的评分',
-    writeReview: '写评论（可选）',
-    postReview: '发布评论',
-    noReviews: '还没有评论 — 来做第一个吧！',
-    welcomeBack: '欢迎回来',
-    createAccount: '创建账户',
-    name: '姓名',
-    email: '电子邮箱',
-    password: '密码',
-    login: '登录',
-    signup: '注册',
-    toSignup: '新用户？创建账户',
-    toLogin: '已有账户？登录',
-    errName: '请输入你的姓名。',
-    errEmail: '请输入你的电子邮箱。',
-    errPassword: '请输入密码。',
-    errDup: '该电子邮箱已被注册。',
-    errWrong: '电子邮箱或密码错误。',
-    myAccount: '我的账户',
-    editName: '修改姓名',
-    saveName: '保存姓名',
-    yourName: '你的姓名',
-    account: '账户',
-    status: '状态',
-    active: '● 活跃',
-    memberSince: '注册于',
-    myActivity: '我的活动',
-    favourites: '收藏',
-    savedPlaces: '已收藏的地点',
-    savedHint: '点击任意餐厅的爱心即可收藏到这里。',
-    language: '语言',
-    hours: '营业时间',
-    address: '地址',
-    directions: '获取路线',
-    quickFind: '快速查找',
-    chatHello: '你好！告诉我你想吃什么 — 试试 "cheap halal cafe"。',
-    chatHelp: '试试 "cheap"、"halal"、"cafe"、"taiwanese" 这类词。',
-    chatNoMatch: '没有找到 — 试试减少关键词。',
-    chatFound: '为你找到这些：',
-    chatPlaceholder: '例如：cheap halal cafe',
-    chatSend: '发送',
-    bookTable: '预订餐桌',
-    bookDay: '日期',
-    today: '今天',
-    tomorrow: '明天',
-    bookTime: '时间',
-    partySize: '人数',
-    people: '人',
-    confirmBooking: '确认预订',
-    bookingConfirmed: '预订已确认！',
-    bookingNote: '这是原型预订 — 并未真正预留餐桌。',
-    done: '完成',
-    myBookings: '我的预订',
-    noBookings: '还没有预订。',
-    vegetarian: '素食',
-    vegan: '纯素',
-  },
-};
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
-// One dish on a menu: a name and a price (in RM).
-type MenuItem = {
+type MenuItem = { name: string; price: number };
+
+type Restaurant = {
+  id: string;
   name: string;
-  price: number;
+  cuisine: string;
+  halal: boolean;
+  priceLevel: 1 | 2 | 3;
+  distanceKm: number;
+  googleRating: number;
+  userRating: number;   // seed only — shown only as a fallback, never as a real score
+  address: string;
+  hours: string;
+  tags: string[];       // dietary tags, e.g. 'Vegetarian'
+  menu: MenuItem[];
 };
 
-// One in-app review. authorEmail identifies WHO wrote it (for the profile
-// count); author is their name at the time (for display).
 type Review = {
   id: string;
   restaurantId: string;
   author: string;
   authorEmail: string;
-  rating: number; // 1-5 stars
+  rating: number;
   text: string;
-  at: number;     // Date.now()
+  at: number;
 };
 
-// A "type" describes the SHAPE of one restaurant, so the editor warns us
-// if we mistype a field (e.g. ".cusine"). This is the TypeScript part.
-type Restaurant = {
+type Booking = {
   id: string;
-  emoji: string;
-  name: string;
-  cuisine: string;       // e.g. 'Malaysian', 'Chinese', 'Western'
-  halal: boolean;        // true / false — a yes-or-no value
-  priceLevel: 1 | 2 | 3; // 1 = cheap ($), 2 = mid ($$), 3 = pricey ($$$)
-  distanceKm: number;
-  googleRating: number;  // out of 5, from Google
-  userRating: number;    // out of 5, from MakanMana users
-  address: string;
-  hours: string;
-  tags: string[];        // dietary tags, e.g. 'Vegetarian', 'Vegan'
-  menu: MenuItem[];      // the dishes — we curate these by hand, one shop at a time
+  restaurantId: string;
+  restaurantName: string;
+  userEmail: string;
+  day: string;
+  time: string;
+  partySize: number;
+  at: number;
 };
 
-// 1) THE DATA — real eateries in Taman Connaught, the small area beside UCSI
-//    (read off the map). cuisine / halal / price / ratings / address / hours
-//    are PLACEHOLDER values for now — VERIFY the real ones before the demo
-//    (Google ratings will come from the Google Places API). The street names
-//    are right, but unit numbers and opening hours are guesses.
-//    menu[] starts empty until we curate it.
+type ChatMsg = { from: 'user' | 'bot'; text: string; results?: Restaurant[] };
+
+type Account = { name: string; email: string; password: string; joinedAt: number };
+
+type Tab = 'explore' | 'saved' | 'chat' | 'profile';
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+// Real eateries in Taman Connaught, the small area beside UCSI (read off the map).
+// ⚠️ cuisine / halal / price / ratings / address / hours / tags are PLACEHOLDER
+//    values — VERIFY before the demo. Street names are right; unit numbers and
+//    opening hours are guesses. Google ratings will come from the Places API.
+
 const RESTAURANTS: Restaurant[] = [
   {
-    id: '1', emoji: '🍟', name: "McDonald's Taman Connaught DT", cuisine: 'Fast Food',
+    id: '1', name: "McDonald's Taman Connaught DT", cuisine: 'Fast Food',
     halal: true, priceLevel: 1, distanceKm: 0.4, googleRating: 4.1, userRating: 4.0,
     address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
     hours: '24 hours',
@@ -306,56 +81,209 @@ const RESTAURANTS: Restaurant[] = [
     ],
   },
   {
-    id: '2', emoji: '🍛', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
+    id: '2', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
     halal: true, priceLevel: 1, distanceKm: 0.5, googleRating: 4.0, userRating: 4.2,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '07:00 – 23:00',
     tags: ['Vegetarian'],
-    menu: [], // to curate
+    menu: [],
   },
   {
-    id: '3', emoji: '🍜', name: 'Tai Jie Taman Connaught', cuisine: 'Taiwanese',
+    id: '3', name: 'Tai Jie Taman Connaught', cuisine: 'Taiwanese',
     halal: false, priceLevel: 2, distanceKm: 0.5, googleRating: 4.3, userRating: 4.4,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '11:00 – 21:00',
     tags: ['Vegetarian'],
-    menu: [], // to curate
+    menu: [],
   },
   {
-    id: '4', emoji: '☕', name: 'Craft Cafe', cuisine: 'Café',
+    id: '4', name: 'Craft Cafe', cuisine: 'Café',
     halal: false, priceLevel: 2, distanceKm: 0.4, googleRating: 4.4, userRating: 4.5,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '10:00 – 22:00',
     tags: ['Vegetarian', 'Vegan'],
-    menu: [], // to curate
+    menu: [],
   },
   {
-    id: '5', emoji: '🥙', name: 'Shawarma Restaurant', cuisine: 'Middle Eastern',
+    id: '5', name: 'Shawarma Restaurant', cuisine: 'Middle Eastern',
     halal: true, priceLevel: 2, distanceKm: 0.6, googleRating: 4.2, userRating: 4.3,
     address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
     hours: '11:00 – 23:00',
     tags: ['Vegetarian'],
-    menu: [], // to curate
+    menu: [],
   },
 ];
 
-// Build the list of cuisine buttons from the data itself: 'All' first, then
-// each unique cuisine. (new Set throws away duplicates; Array.from turns it
-// back into an array we can .map() over.) Deriving it means new restaurants
-// automatically get a button — we never hand-maintain this list.
+// Filter options derived from the data, so new restaurants need no extra wiring.
 const CUISINES = ['All', ...Array.from(new Set(RESTAURANTS.map((r) => r.cuisine)))];
+const PRICE_OPTIONS = [0, 1, 2, 3]; // 0 = any
+const DIET_TAGS = Array.from(new Set(RESTAURANTS.flatMap((r) => r.tags)));
 
-// Price filter options. 0 means "Any price"; 1/2/3 match priceLevel.
-const PRICE_OPTIONS = [0, 1, 2, 3];
+// ─── LANGUAGES ────────────────────────────────────────────────────────────────
+// English + Bahasa Melayu + Chinese. A plain dictionary keyed by a short id.
+// Restaurant names and cuisines stay untranslated — they are data, not chrome.
 
-// Dietary tags for the filter: 'All' first, then each unique tag in the data.
-const DIET_TAGS = ['All', ...Array.from(new Set(RESTAURANTS.flatMap((r) => r.tags)))];
+type Lang = 'en' | 'ms' | 'zh';
 
-// THE CHATBOT "BRAIN" — keyword matching, exactly as scoped in the proposal
-// (a real-AI/LLM chatbot is explicitly future work). It spots price, halal
-// and cuisine words in the message and runs them through the same filtering
-// idea the pills use. English + a few Malay words; a fully multi-language
-// chatbot is out of scope per the proposal.
+const STRINGS: Record<Lang, Record<string, string>> = {
+  en: {
+    tagline: 'Taman Connaught · beside UCSI',
+    explore: 'Explore', savedTab: 'Saved', profileTab: 'Profile',
+    logout: 'Log out',
+    search: 'Search restaurants',
+    halalOnly: 'Halal only', all: 'All', anyPrice: 'Any',
+    place: 'place', places: 'places',
+    noMatch: 'No places match these filters.',
+    clearFilters: 'Clear filters',
+    kmAway: 'km', back: 'Back',
+    saved: 'Saved', saveToFav: 'Save',
+    noSaved: 'Nothing saved yet. Tap the heart on any restaurant.',
+    menu: 'Menu', menuSoon: 'Menu not added yet.',
+    reviews: 'Reviews', reviewWord: 'review', reviewsWord: 'reviews',
+    noReviewsYet: 'No reviews yet',
+    yourRating: 'Your rating', writeReview: 'Share what you thought (optional)',
+    postReview: 'Post review', beFirst: 'No reviews yet — be the first.',
+    welcomeBack: 'Welcome back', createAccount: 'Create account',
+    name: 'Name', email: 'Email', password: 'Password',
+    emailHint: 'you@example.com',
+    login: 'Log in', signup: 'Sign up',
+    toSignup: 'New here? Create an account', toLogin: 'Already have an account? Log in',
+    errName: 'Enter your name.', errEmail: 'Enter your email.',
+    errPassword: 'Enter a password.', errDup: 'That email is already registered.',
+    errWrong: 'Wrong email or password.',
+    myAccount: 'My account', editName: 'Edit name', saveName: 'Save',
+    cancel: 'Cancel', yourName: 'Your name',
+    account: 'Account', status: 'Status', active: 'Active',
+    memberSince: 'Member since', myActivity: 'Activity', favourites: 'Favourites',
+    language: 'Language', hours: 'Hours', address: 'Address',
+    directions: 'Directions',
+    quickFind: 'Quick find',
+    chatHello: "Tell me what you feel like — try 'cheap halal cafe'.",
+    chatHelp: "Try words like 'cheap', 'halal', 'cafe' or 'taiwanese'.",
+    chatNoMatch: 'Nothing matched — try fewer words.',
+    chatFound: "Here's what I found:",
+    chatPlaceholder: 'cheap halal cafe', chatSend: 'Send',
+    bookTable: 'Book a table', bookDay: 'Day', today: 'Today', tomorrow: 'Tomorrow',
+    bookTime: 'Time', partySize: 'Party size', people: 'people',
+    confirmBooking: 'Confirm booking', bookingConfirmed: 'Booking confirmed',
+    bookingNote: 'Prototype booking — no table is actually reserved.',
+    done: 'Done', myBookings: 'Bookings', noBookings: 'No bookings yet.',
+    vegetarian: 'Vegetarian', vegan: 'Vegan',
+  },
+  ms: {
+    tagline: 'Taman Connaught · sebelah UCSI',
+    explore: 'Jelajah', savedTab: 'Disimpan', profileTab: 'Profil',
+    logout: 'Log keluar',
+    search: 'Cari restoran',
+    halalOnly: 'Halal sahaja', all: 'Semua', anyPrice: 'Semua',
+    place: 'tempat', places: 'tempat',
+    noMatch: 'Tiada tempat sepadan dengan penapis ini.',
+    clearFilters: 'Kosongkan penapis',
+    kmAway: 'km', back: 'Kembali',
+    saved: 'Disimpan', saveToFav: 'Simpan',
+    noSaved: 'Belum ada yang disimpan. Ketik hati pada mana-mana restoran.',
+    menu: 'Menu', menuSoon: 'Menu belum ditambah.',
+    reviews: 'Ulasan', reviewWord: 'ulasan', reviewsWord: 'ulasan',
+    noReviewsYet: 'Tiada ulasan lagi',
+    yourRating: 'Penilaian anda', writeReview: 'Kongsi pendapat anda (pilihan)',
+    postReview: 'Hantar ulasan', beFirst: 'Tiada ulasan lagi — jadilah yang pertama.',
+    welcomeBack: 'Selamat kembali', createAccount: 'Cipta akaun',
+    name: 'Nama', email: 'E-mel', password: 'Kata laluan',
+    emailHint: 'anda@contoh.com',
+    login: 'Log masuk', signup: 'Daftar',
+    toSignup: 'Baharu di sini? Cipta akaun', toLogin: 'Sudah ada akaun? Log masuk',
+    errName: 'Masukkan nama anda.', errEmail: 'Masukkan e-mel anda.',
+    errPassword: 'Masukkan kata laluan.', errDup: 'E-mel itu telah didaftarkan.',
+    errWrong: 'E-mel atau kata laluan salah.',
+    myAccount: 'Akaun saya', editName: 'Edit nama', saveName: 'Simpan',
+    cancel: 'Batal', yourName: 'Nama anda',
+    account: 'Akaun', status: 'Status', active: 'Aktif',
+    memberSince: 'Ahli sejak', myActivity: 'Aktiviti', favourites: 'Kegemaran',
+    language: 'Bahasa', hours: 'Waktu buka', address: 'Alamat',
+    directions: 'Arah',
+    quickFind: 'Cari pantas',
+    chatHello: "Beritahu saya apa yang anda mahu — cuba 'kafe halal murah'.",
+    chatHelp: "Cuba perkataan seperti 'murah', 'halal', 'kafe' atau 'taiwan'.",
+    chatNoMatch: 'Tiada padanan — cuba kurangkan perkataan.',
+    chatFound: 'Ini yang saya jumpa:',
+    chatPlaceholder: 'kafe halal murah', chatSend: 'Hantar',
+    bookTable: 'Tempah meja', bookDay: 'Hari', today: 'Hari ini', tomorrow: 'Esok',
+    bookTime: 'Masa', partySize: 'Bilangan orang', people: 'orang',
+    confirmBooking: 'Sahkan tempahan', bookingConfirmed: 'Tempahan disahkan',
+    bookingNote: 'Tempahan prototaip — tiada meja sebenar ditempah.',
+    done: 'Selesai', myBookings: 'Tempahan', noBookings: 'Tiada tempahan lagi.',
+    vegetarian: 'Vegetarian', vegan: 'Vegan',
+  },
+  zh: {
+    tagline: 'Taman Connaught · UCSI 旁',
+    explore: '探索', savedTab: '收藏', profileTab: '我的',
+    logout: '登出',
+    search: '搜索餐厅',
+    halalOnly: '仅清真', all: '全部', anyPrice: '不限',
+    place: '家', places: '家',
+    noMatch: '没有符合这些筛选条件的餐厅。',
+    clearFilters: '清除筛选',
+    kmAway: '公里', back: '返回',
+    saved: '已收藏', saveToFav: '收藏',
+    noSaved: '还没有收藏。点击任意餐厅的爱心。',
+    menu: '菜单', menuSoon: '菜单尚未添加。',
+    reviews: '评论', reviewWord: '条评论', reviewsWord: '条评论',
+    noReviewsYet: '暂无评论',
+    yourRating: '你的评分', writeReview: '分享你的想法（可选）',
+    postReview: '发布评论', beFirst: '暂无评论 — 来做第一个。',
+    welcomeBack: '欢迎回来', createAccount: '创建账户',
+    name: '姓名', email: '电子邮箱', password: '密码',
+    emailHint: 'you@example.com',
+    login: '登录', signup: '注册',
+    toSignup: '新用户？创建账户', toLogin: '已有账户？登录',
+    errName: '请输入姓名。', errEmail: '请输入电子邮箱。',
+    errPassword: '请输入密码。', errDup: '该电子邮箱已被注册。',
+    errWrong: '电子邮箱或密码错误。',
+    myAccount: '我的账户', editName: '修改姓名', saveName: '保存',
+    cancel: '取消', yourName: '你的姓名',
+    account: '账户', status: '状态', active: '活跃',
+    memberSince: '注册于', myActivity: '活动', favourites: '收藏',
+    language: '语言', hours: '营业时间', address: '地址',
+    directions: '路线',
+    quickFind: '快速查找',
+    chatHello: '告诉我你想吃什么 — 试试 "cheap halal cafe"。',
+    chatHelp: '试试 "cheap"、"halal"、"cafe"、"taiwanese" 这类词。',
+    chatNoMatch: '没有找到 — 试试减少关键词。',
+    chatFound: '为你找到这些：',
+    chatPlaceholder: 'cheap halal cafe', chatSend: '发送',
+    bookTable: '预订餐桌', bookDay: '日期', today: '今天', tomorrow: '明天',
+    bookTime: '时间', partySize: '人数', people: '人',
+    confirmBooking: '确认预订', bookingConfirmed: '预订已确认',
+    bookingNote: '原型预订 — 并未真正预留餐桌。',
+    done: '完成', myBookings: '预订', noBookings: '还没有预订。',
+    vegetarian: '素食', vegan: '纯素',
+  },
+};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function priceLabel(level: number) {
+  return '$'.repeat(level);
+}
+function ringgit(amount: number) {
+  return 'RM ' + amount.toFixed(2);
+}
+function starString(rating: number) {
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+}
+
+// Average of a restaurant's in-app reviews, or null when there are none.
+// Returning null (rather than the seeded userRating) is deliberate: we never
+// present invented data as a real community score. See design.md § Honest data.
+function reviewStats(reviews: Review[], restaurantId: string) {
+  const mine = reviews.filter((r) => r.restaurantId === restaurantId);
+  if (mine.length === 0) return { avg: null as number | null, count: 0 };
+  const avg = mine.reduce((sum, r) => sum + r.rating, 0) / mine.length;
+  return { avg, count: mine.length };
+}
+
+// THE CHATBOT BRAIN — keyword matching, as scoped in the proposal (an LLM
+// chatbot is explicit future work). Spots price, halal and cuisine words.
 function chatFind(query: string): { matches: Restaurant[]; understood: boolean } {
   const s = query.toLowerCase();
 
@@ -367,7 +295,6 @@ function chatFind(query: string): { matches: Restaurant[]; understood: boolean }
   if (/cheap|budget|murah/.test(s)) price = 1;
   else if (/expensive|pricey|fancy|mahal/.test(s)) price = 3;
 
-  // word patterns -> the cuisine values used in our data
   const CUISINE_WORDS: [RegExp, string][] = [
     [/caf|kafe|coffee|kopi/, 'Café'],
     [/taiwan/, 'Taiwanese'],
@@ -378,7 +305,6 @@ function chatFind(query: string): { matches: Restaurant[]; understood: boolean }
   const cuisineHit = CUISINE_WORDS.find(([re]) => re.test(s));
   const cuisine = cuisineHit ? cuisineHit[1] : null;
 
-  // "understood" = we recognised at least one keyword
   const understood = halal !== null || price !== null || cuisine !== null;
   const matches = !understood
     ? []
@@ -391,38 +317,10 @@ function chatFind(query: string): { matches: Restaurant[]; understood: boolean }
   return { matches, understood };
 }
 
-// One chat message. Bot messages can carry matching restaurants to show.
-type ChatMsg = {
-  from: 'user' | 'bot';
-  text: string;
-  results?: Restaurant[];
-};
+// ─── PRIMITIVES ───────────────────────────────────────────────────────────────
 
-// A simulated table booking. Prototype only — nothing is really reserved.
-type Booking = {
-  id: string;
-  restaurantId: string;
-  restaurantName: string;
-  userEmail: string;
-  day: string;   // 'today' | 'tomorrow' (a translation key)
-  time: string;  // e.g. '19:30'
-  partySize: number;
-  at: number;
-};
-
-// Preset time slots so we don't need a date/time picker library.
-const TIME_SLOTS = ['11:30', '12:30', '13:30', '18:30', '19:30', '20:30'];
-
-// HELPER FUNCTIONS
-function priceLabel(level: number) {
-  return '$'.repeat(level); // priceLevel 2 -> "$$"
-}
-function ringgit(amount: number) {
-  return 'RM ' + amount.toFixed(2); // 9.5 -> "RM 9.50"
-}
-
-// A reusable tappable "pill" button for the filter bar.
-function FilterPill({
+// Chip — SELECTION IS INK. Selected chips go near-black, never accent.
+function Chip({
   label,
   active,
   onPress,
@@ -432,271 +330,178 @@ function FilterPill({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.pill, active && styles.pillActive]}>
-      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        s.chip,
+        active && s.chipActive,
+        pressed && !active && s.chipPressed,
+      ]}
+    >
+      <Text style={[s.chipText, active && s.chipTextActive]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
-// THE CARD — now tappable. onPress is a function the parent passes in;
-// tapping the card runs it (to open the detail screen).
-function RestaurantCard({
-  restaurant,
-  onPress,
-  isFav,
-  onToggleFav,
-  userRating,
-  reviewCount,
-  t,
+// Segmented control — compact alternative to a row of pills. Used for price,
+// language and booking day.
+function Segmented({
+  options,
+  value,
+  onChange,
 }: {
-  restaurant: Restaurant;
-  onPress: () => void;
-  isFav: boolean;
-  onToggleFav: () => void;
-  userRating: number;  // resolved: review average, or the seed if no reviews
-  reviewCount: number;
-  t: (k: string) => string;
+  options: { key: string; label: string }[];
+  value: string;
+  onChange: (key: string) => void;
 }) {
-  // The card is a plain View so we can have TWO separate tap targets inside it:
-  // the main area (opens the detail screen) and the heart (toggles favourite).
   return (
-    <View style={styles.card}>
-      <Pressable style={styles.cardMain} onPress={onPress}>
-        {/* Monogram tile stands in for a photo — the restaurant's initial */}
-        <View style={styles.cardThumb}>
-          <Text style={styles.cardThumbText}>{restaurant.name.charAt(0).toUpperCase()}</Text>
-        </View>
-
-        <View style={styles.cardBody}>
-          <Text style={styles.name}>{restaurant.name}</Text>
-
-          <View style={styles.tagRow}>
-            <Text style={styles.cuisine}>{restaurant.cuisine}</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.price}>{priceLabel(restaurant.priceLevel)}</Text>
-            {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
-            {restaurant.tags.map((tag) => (
-              <Text key={tag} style={styles.tagPill}>{t(tag.toLowerCase())}</Text>
-            ))}
-          </View>
-
-          <View style={styles.ratingRow}>
-            <Text style={styles.rating}>
-              <Text style={styles.star}>★ </Text>
-              {restaurant.googleRating} Google
+    <View style={s.segTrack}>
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <Pressable
+            key={o.key}
+            onPress={() => onChange(o.key)}
+            style={[s.segItem, on && s.segItemOn]}
+          >
+            <Text style={[s.segText, on && s.segTextOn]} numberOfLines={1}>
+              {o.label}
             </Text>
-            <Text style={styles.rating}>
-              {userRating.toFixed(1)} {t('users')}
-              {reviewCount > 0 ? ` (${reviewCount})` : ''}
-            </Text>
-          </View>
-
-          <Text style={styles.meta}>
-            {restaurant.distanceKm} {t('kmAway')}
-          </Text>
-        </View>
-      </Pressable>
-
-      {/* Heart: ♥ when saved, ♡ when not */}
-      <Pressable style={styles.heart} onPress={onToggleFav} hitSlop={8}>
-        <Text style={[styles.heartIcon, isFav && styles.heartActive]}>{isFav ? '♥' : '♡'}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// Turn a 1-5 rating into filled/empty stars, e.g. 3 -> "★★★☆☆".
-function starString(rating: number) {
-  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-}
-
-// THE DETAIL SCREEN — shown when a restaurant is open. onBack closes it.
-function DetailScreen({
-  restaurant,
-  onBack,
-  isFav,
-  onToggleFav,
-  reviews,
-  onAddReview,
-  onBookTable,
-  t,
-}: {
-  restaurant: Restaurant;
-  onBack: () => void;
-  isFav: boolean;
-  onToggleFav: () => void;
-  reviews: Review[];              // only THIS restaurant's reviews
-  onAddReview: (rating: number, text: string) => void;
-  onBookTable: () => void;
-  t: (k: string) => string;
-}) {
-  // Local state for the little "write a review" form.
-  const [myRating, setMyRating] = useState(0); // 0 = no star picked yet
-  const [myText, setMyText] = useState('');
-
-  function submitReview() {
-    if (myRating === 0) return; // a star rating is required; text is optional
-    onAddReview(myRating, myText.trim());
-    setMyRating(0);
-    setMyText('');
-  }
-
-  // Hand off to Google Maps for navigation (the proposal says we don't build
-  // our own routing). ponytail: search by name + area — accurate enough
-  // without coordinates; swap to lat/lng if we later pull them from Places API.
-  function openDirections() {
-    const q = encodeURIComponent(`${restaurant.name}, Taman Connaught, Cheras`);
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
-  }
-
-  // Average of in-app reviews, if any (rounded to 1 decimal).
-  const avg =
-    reviews.length > 0
-      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-      : null;
-
-  return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.back}>← {t('back')}</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{restaurant.name}</Text>
-        <Text style={styles.headerSubtitle}>
-          {restaurant.cuisine} · {priceLabel(restaurant.priceLevel)} ·{' '}
-          {restaurant.distanceKm} {t('kmAway')}
-        </Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.detailBody}>
-        {/* Info row */}
-        <View style={styles.detailInfoRow}>
-          <Text style={styles.rating}>
-            <Text style={styles.star}>★ </Text>
-            {restaurant.googleRating} Google
-          </Text>
-          <Text style={styles.rating}>
-            {avg ?? restaurant.userRating} {t('users')}
-            {reviews.length ? ` (${reviews.length})` : ''}
-          </Text>
-          {restaurant.halal && <Text style={styles.halalBadge}>Halal</Text>}
-          {restaurant.tags.map((tag) => (
-            <Text key={tag} style={styles.tagPill}>{t(tag.toLowerCase())}</Text>
-          ))}
-        </View>
-
-        {/* Hours + address */}
-        <View style={styles.detailInfoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{t('hours')}</Text>
-            <Text style={styles.infoValue}>{restaurant.hours}</Text>
-          </View>
-          <View style={[styles.infoRow, styles.infoRowLast]}>
-            <Text style={styles.infoLabel}>{t('address')}</Text>
-            <Text style={[styles.infoValue, styles.infoValueWrap]}>{restaurant.address}</Text>
-          </View>
-        </View>
-
-        {/* Save toggle — fills in when saved */}
-        <Pressable
-          style={[styles.saveBtn, isFav && styles.saveBtnActive]}
-          onPress={onToggleFav}
-        >
-          <Text style={[styles.saveBtnText, isFav && styles.saveBtnTextActive]}>
-            {isFav ? t('saved') : t('saveToFav')}
-          </Text>
-        </Pressable>
-
-        {/* Hands off to Google Maps rather than building our own navigation */}
-        <Pressable style={styles.dirBtn} onPress={openDirections}>
-          <Text style={styles.dirBtnText}>➤  {t('directions')}</Text>
-        </Pressable>
-
-        {/* Simulated table booking */}
-        <Pressable style={styles.bookBtn} onPress={onBookTable}>
-          <Text style={styles.bookBtnText}>{t('bookTable')}</Text>
-        </Pressable>
-
-        <Text style={styles.sectionTitle}>{t('menu')}</Text>
-
-        {/* If we've curated a menu, list each item; otherwise show a note. */}
-        {restaurant.menu.length === 0 ? (
-          <Text style={styles.empty}>{t('menuSoon')}</Text>
-        ) : (
-          restaurant.menu.map((item) => (
-            <View key={item.name} style={styles.menuRow}>
-              <Text style={styles.menuName}>{item.name}</Text>
-              <Text style={styles.menuPrice}>{ringgit(item.price)}</Text>
-            </View>
-          ))
-        )}
-
-        {/* REVIEWS */}
-        <Text style={[styles.sectionTitle, styles.reviewsTitle]}>
-          {t('reviews')}{avg ? `  ★ ${avg}` : ''}
-        </Text>
-
-        {/* Write-a-review form */}
-        <View style={styles.reviewForm}>
-          <Text style={styles.reviewFormLabel}>{t('yourRating')}</Text>
-          <View style={styles.starPickRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setMyRating(n)} hitSlop={4}>
-                <Text style={[styles.starPick, n <= myRating && styles.starPickOn]}>
-                  {n <= myRating ? '★' : '☆'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <TextInput
-            style={styles.reviewInput}
-            placeholder={t('writeReview')}
-            placeholderTextColor="#b3a695"
-            value={myText}
-            onChangeText={setMyText}
-            multiline
-          />
-          <Pressable style={styles.reviewSubmit} onPress={submitReview}>
-            <Text style={styles.reviewSubmitText}>{t('postReview')}</Text>
           </Pressable>
-        </View>
-
-        {/* Existing reviews, newest first (App passes them already sorted) */}
-        {reviews.length === 0 ? (
-          <Text style={styles.hint}>{t('noReviews')}</Text>
-        ) : (
-          reviews.map((r) => (
-            <View key={r.id} style={styles.reviewRow}>
-              <View style={styles.reviewHead}>
-                <Text style={styles.reviewAuthor}>{r.author}</Text>
-                <Text style={styles.reviewStars}>{starString(r.rating)}</Text>
-              </View>
-              {r.text !== '' && <Text style={styles.reviewText}>{r.text}</Text>}
-              <Text style={styles.reviewDate}>{new Date(r.at).toLocaleDateString()}</Text>
-            </View>
-          ))
-        )}
-      </ScrollView>
-
-      <StatusBar style="auto" />
+        );
+      })}
     </View>
   );
 }
 
-// A registered account. In this PROTOTYPE we keep accounts in memory only, so
-// they reset when the app reloads. A real app would store them in a backend
-// database (Supabase/Firebase) — a documented limitation for the FYP.
-type Account = {
-  name: string;
-  email: string;
-  password: string;
-  joinedAt: number; // when they signed up (Date.now()), for "Member since"
-};
+function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [s.btnPrimary, pressed && s.btnPrimaryPressed]}
+    >
+      <Text style={s.btnPrimaryText}>{label}</Text>
+    </Pressable>
+  );
+}
 
-// THE AUTH SCREEN — shown when nobody is logged in. It flips between "Log in"
-// and "Sign up" modes, and reports errors back to the user. It doesn't touch
-// the account list itself — it calls onLogin / onSignup, which return an error
-// message (a string) or null when everything worked.
+function SecondaryButton({
+  label,
+  onPress,
+  grow,
+}: {
+  label: string;
+  onPress: () => void;
+  grow?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        s.btnSecondary,
+        grow && s.grow,
+        pressed && s.btnSecondaryPressed,
+      ]}
+    >
+      <Text style={s.btnSecondaryText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function Field({
+  label,
+  ...input
+}: React.ComponentProps<typeof TextInput> & { label: string }) {
+  return (
+    <View style={s.field}>
+      <Text style={s.fieldLabel}>{label}</Text>
+      <TextInput
+        style={s.input}
+        placeholderTextColor={color.ink3}
+        {...input}
+      />
+    </View>
+  );
+}
+
+// A restaurant row — hairline separated, not a bordered card. The name gets the
+// full width; metadata sits beneath in two quiet lines.
+function RestaurantRow({
+  restaurant,
+  avg,
+  count,
+  isFav,
+  onPress,
+  onToggleFav,
+  t,
+}: {
+  restaurant: Restaurant;
+  avg: number | null;
+  count: number;
+  isFav: boolean;
+  onPress: () => void;
+  onToggleFav: () => void;
+  t: (k: string) => string;
+}) {
+  const meta = [
+    restaurant.cuisine,
+    priceLabel(restaurant.priceLevel),
+    `${restaurant.distanceKm} ${t('kmAway')}`,
+  ].join('  ·  ');
+
+  return (
+    <View style={s.row}>
+      <Pressable
+        style={({ pressed }) => [s.rowMain, pressed && s.rowPressed]}
+        onPress={onPress}
+      >
+        <Text style={s.rowTitle} numberOfLines={1}>
+          {restaurant.name}
+        </Text>
+        <Text style={s.rowMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+
+        <Text style={s.rowMeta} numberOfLines={1}>
+          {avg !== null ? (
+            <>
+              <Text style={s.star}>★ </Text>
+              <Text style={s.rowRating}>{avg.toFixed(1)}</Text>
+              <Text>
+                {`  ·  ${count} ${count === 1 ? t('reviewWord') : t('reviewsWord')}`}
+              </Text>
+            </>
+          ) : (
+            <Text>{t('noReviewsYet')}</Text>
+          )}
+          <Text>{`  ·  Google ${restaurant.googleRating}`}</Text>
+        </Text>
+
+        {(restaurant.halal || restaurant.tags.length > 0) && (
+          <View style={s.badgeRow}>
+            {restaurant.halal && <Text style={s.badgeHalal}>Halal</Text>}
+            {restaurant.tags.map((tag) => (
+              <Text key={tag} style={s.badgeNeutral}>
+                {t(tag.toLowerCase())}
+              </Text>
+            ))}
+          </View>
+        )}
+      </Pressable>
+
+      <Pressable style={s.heartHit} onPress={onToggleFav} hitSlop={8}>
+        <Text style={[s.heart, isFav && s.heartOn]}>{isFav ? '♥' : '♡'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
 function AuthScreen({
   onLogin,
   onSignup,
@@ -715,12 +520,10 @@ function AuthScreen({
   const isSignup = mode === 'signup';
 
   function submit() {
-    // Basic validation before we try anything.
     if (isSignup && name.trim() === '') return setError(t('errName'));
     if (email.trim() === '') return setError(t('errEmail'));
     if (password === '') return setError(t('errPassword'));
 
-    // Run the matching handler; null means success, a string is the error.
     const problem = isSignup
       ? onSignup(name.trim(), email.trim(), password)
       : onLogin(email.trim(), password);
@@ -728,71 +531,237 @@ function AuthScreen({
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.authWrap}>
-        <Text style={styles.authLogo}>MakanMana</Text>
-        <Text style={styles.authTagline}>{t('tagline')}</Text>
+    <View style={s.screen}>
+      <ScrollView contentContainerStyle={s.authWrap}>
+        <Text style={s.wordmark}>MakanMana</Text>
+        <Text style={s.headerSub}>{t('tagline')}</Text>
 
-        <View style={styles.authCard}>
-          <Text style={styles.authTitle}>{isSignup ? t('createAccount') : t('welcomeBack')}</Text>
+        <Text style={s.authTitle}>{isSignup ? t('createAccount') : t('welcomeBack')}</Text>
 
-          {/* Name field only exists in sign-up mode */}
-          {isSignup && (
-            <TextInput
-              style={styles.authInput}
-              placeholder={t('name')}
-              placeholderTextColor="#94a3b8"
-              value={name}
-              onChangeText={setName}
-            />
-          )}
-
-          <TextInput
-            style={styles.authInput}
-            placeholder={t('email')}
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+        {isSignup && (
+          <Field
+            label={t('name')}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
           />
+        )}
 
-          <TextInput
-            style={styles.authInput}
-            placeholder={t('password')}
-            placeholderTextColor="#94a3b8"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+        <Field
+          label={t('email')}
+          placeholder={t('emailHint')}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
 
-          {/* Show the error only when there is one */}
-          {error !== '' && <Text style={styles.authError}>{error}</Text>}
+        <Field
+          label={t('password')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
 
-          <Pressable style={styles.authButton} onPress={submit}>
-            <Text style={styles.authButtonText}>{isSignup ? t('signup') : t('login')}</Text>
-          </Pressable>
+        {error !== '' && <Text style={s.error}>{error}</Text>}
 
-          {/* Switch between the two modes; clear any stale error when we do */}
-          <Pressable
-            onPress={() => {
-              setMode(isSignup ? 'login' : 'signup');
-              setError('');
-            }}
-          >
-            <Text style={styles.authSwitch}>
-              {isSignup ? t('toLogin') : t('toSignup')}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-      <StatusBar style="auto" />
+        <PrimaryButton label={isSignup ? t('signup') : t('login')} onPress={submit} />
+
+        <Pressable
+          onPress={() => {
+            setMode(isSignup ? 'login' : 'signup');
+            setError('');
+          }}
+        >
+          <Text style={s.authSwitch}>{isSignup ? t('toLogin') : t('toSignup')}</Text>
+        </Pressable>
+      </ScrollView>
+      <StatusBar style="dark" />
     </View>
   );
 }
 
-// THE BOOKING SCREEN — pick day, time and party size, confirm. It stores the
-// booking (via onBook) and then shows a confirmation. Simulated only.
+// ─── DETAIL ───────────────────────────────────────────────────────────────────
+
+function DetailScreen({
+  restaurant,
+  onBack,
+  isFav,
+  onToggleFav,
+  reviews,
+  onAddReview,
+  onBookTable,
+  t,
+}: {
+  restaurant: Restaurant;
+  onBack: () => void;
+  isFav: boolean;
+  onToggleFav: () => void;
+  reviews: Review[];
+  onAddReview: (rating: number, text: string) => void;
+  onBookTable: () => void;
+  t: (k: string) => string;
+}) {
+  const [myRating, setMyRating] = useState(0);
+  const [myText, setMyText] = useState('');
+
+  function submitReview() {
+    if (myRating === 0) return; // rating required, text optional
+    onAddReview(myRating, myText.trim());
+    setMyRating(0);
+    setMyText('');
+  }
+
+  // Hand off to Google Maps — the proposal scopes out building our own routing.
+  function openDirections() {
+    const q = encodeURIComponent(`${restaurant.name}, Taman Connaught, Cheras`);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
+  }
+
+  const avg =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : null;
+
+  return (
+    <View style={s.screen}>
+      <View style={s.subHeader}>
+        <Pressable onPress={onBack} hitSlop={8}>
+          <Text style={s.backLink}>← {t('back')}</Text>
+        </Pressable>
+        <Text style={s.screenTitle}>{restaurant.name}</Text>
+        <Text style={s.headerSub}>
+          {restaurant.cuisine}  ·  {priceLabel(restaurant.priceLevel)}  ·{' '}
+          {restaurant.distanceKm} {t('kmAway')}
+        </Text>
+
+        <View style={s.badgeRow}>
+          {restaurant.halal && <Text style={s.badgeHalal}>Halal</Text>}
+          {restaurant.tags.map((tag) => (
+            <Text key={tag} style={s.badgeNeutral}>
+              {t(tag.toLowerCase())}
+            </Text>
+          ))}
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={s.body}>
+        {/* Ratings */}
+        <View style={s.ratingBlock}>
+          {avg !== null ? (
+            <Text style={s.ratingBig}>
+              <Text style={s.star}>★ </Text>
+              {avg.toFixed(1)}
+              <Text style={s.ratingBigSub}>
+                {`  ${reviews.length} ${
+                  reviews.length === 1 ? t('reviewWord') : t('reviewsWord')
+                }`}
+              </Text>
+            </Text>
+          ) : (
+            <Text style={s.ratingNone}>{t('noReviewsYet')}</Text>
+          )}
+          <Text style={s.rowMeta}>{`Google ${restaurant.googleRating}`}</Text>
+        </View>
+
+        {/* Primary action, then secondary pair */}
+        <PrimaryButton label={t('bookTable')} onPress={onBookTable} />
+        <View style={s.btnRow}>
+          <SecondaryButton grow label={t('directions')} onPress={openDirections} />
+          <SecondaryButton
+            grow
+            label={isFav ? `♥  ${t('saved')}` : `♡  ${t('saveToFav')}`}
+            onPress={onToggleFav}
+          />
+        </View>
+
+        {/* Hours + address */}
+        <View style={s.infoTable}>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>{t('hours')}</Text>
+            <Text style={s.infoValue}>{restaurant.hours}</Text>
+          </View>
+          <View style={[s.infoRow, s.infoRowLast]}>
+            <Text style={s.infoLabel}>{t('address')}</Text>
+            <Text style={[s.infoValue, s.infoValueWrap]}>{restaurant.address}</Text>
+          </View>
+        </View>
+
+        {/* Menu */}
+        <Text style={s.sectionTitle}>{t('menu')}</Text>
+        {restaurant.menu.length === 0 ? (
+          <Text style={s.hint}>{t('menuSoon')}</Text>
+        ) : (
+          <View style={s.listBlock}>
+            {restaurant.menu.map((item, i) => (
+              <View
+                key={item.name}
+                style={[s.menuRow, i === restaurant.menu.length - 1 && s.infoRowLast]}
+              >
+                <Text style={s.menuName}>{item.name}</Text>
+                <Text style={s.menuPrice}>{ringgit(item.price)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Reviews */}
+        <Text style={s.sectionTitle}>{t('reviews')}</Text>
+
+        <View style={s.card}>
+          <Text style={s.fieldLabel}>{t('yourRating')}</Text>
+          <View style={s.starPickRow}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setMyRating(n)} hitSlop={4}>
+                <Text style={[s.starPick, n <= myRating && s.starPickOn]}>
+                  {n <= myRating ? '★' : '☆'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            style={[s.input, s.textarea]}
+            placeholder={t('writeReview')}
+            placeholderTextColor={color.ink3}
+            value={myText}
+            onChangeText={setMyText}
+            multiline
+          />
+          <PrimaryButton label={t('postReview')} onPress={submitReview} />
+        </View>
+
+        {reviews.length === 0 ? (
+          <Text style={s.hint}>{t('beFirst')}</Text>
+        ) : (
+          <View style={s.listBlock}>
+            {reviews.map((r, i) => (
+              <View
+                key={r.id}
+                style={[s.reviewRow, i === reviews.length - 1 && s.infoRowLast]}
+              >
+                <View style={s.reviewHead}>
+                  <Text style={s.reviewAuthor}>{r.author}</Text>
+                  <Text style={s.reviewStars}>{starString(r.rating)}</Text>
+                </View>
+                {r.text !== '' && <Text style={s.reviewText}>{r.text}</Text>}
+                <Text style={s.reviewDate}>
+                  {new Date(r.at).toLocaleDateString()}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      <StatusBar style="dark" />
+    </View>
+  );
+}
+
+// ─── BOOKING ──────────────────────────────────────────────────────────────────
+
+const TIME_SLOTS = ['11:30', '12:30', '13:30', '18:30', '19:30', '20:30'];
+
 function BookingScreen({
   restaurant,
   t,
@@ -815,92 +784,103 @@ function BookingScreen({
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.back}>← {t('back')}</Text>
+    <View style={s.screen}>
+      <View style={s.subHeader}>
+        <Pressable onPress={onBack} hitSlop={8}>
+          <Text style={s.backLink}>← {t('back')}</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>{t('bookTable')}</Text>
-        <Text style={styles.headerSubtitle}>{restaurant.name}</Text>
+        <Text style={s.screenTitle}>{t('bookTable')}</Text>
+        <Text style={s.headerSub}>{restaurant.name}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.detailBody}>
+      <ScrollView contentContainerStyle={s.body}>
         {confirmed ? (
-          // CONFIRMATION
-          <View style={styles.confirmCard}>
-            <Text style={styles.confirmTick}>✓</Text>
-            <Text style={styles.confirmTitle}>{t('bookingConfirmed')}</Text>
-            <Text style={styles.confirmLine}>{restaurant.name}</Text>
-            <Text style={styles.confirmLine}>
-              {t(day)} · {time} · {partySize} {t('people')}
-            </Text>
-            <Text style={styles.confirmNote}>{t('bookingNote')}</Text>
-            <Pressable style={styles.profileBtn} onPress={onBack}>
-              <Text style={styles.profileBtnText}>{t('done')}</Text>
-            </Pressable>
+          <View style={s.card}>
+            <View style={s.tickWrap}>
+              <Text style={s.tick}>✓</Text>
+            </View>
+            <Text style={s.confirmTitle}>{t('bookingConfirmed')}</Text>
+            <View style={s.infoTable}>
+              <View style={s.infoRow}>
+                <Text style={s.infoLabel}>{restaurant.name}</Text>
+                <Text style={s.infoValue}>{t(day)}</Text>
+              </View>
+              <View style={[s.infoRow, s.infoRowLast]}>
+                <Text style={s.infoLabel}>{time}</Text>
+                <Text style={s.infoValue}>
+                  {partySize} {t('people')}
+                </Text>
+              </View>
+            </View>
+            <Text style={s.hint}>{t('bookingNote')}</Text>
+            <PrimaryButton label={t('done')} onPress={onBack} />
           </View>
         ) : (
-          // THE FORM
           <>
-            <Text style={styles.sectionTitle}>{t('bookDay')}</Text>
-            <View style={styles.filterRow}>
-              {['today', 'tomorrow'].map((d) => (
-                <FilterPill key={d} label={t(d)} active={day === d} onPress={() => setDay(d)} />
+            <Text style={s.sectionTitle}>{t('bookDay')}</Text>
+            <Segmented
+              value={day}
+              onChange={setDay}
+              options={[
+                { key: 'today', label: t('today') },
+                { key: 'tomorrow', label: t('tomorrow') },
+              ]}
+            />
+
+            <Text style={[s.sectionTitle, s.sectionGap]}>{t('bookTime')}</Text>
+            <View style={s.chipWrap}>
+              {TIME_SLOTS.map((slot) => (
+                <Chip
+                  key={slot}
+                  label={slot}
+                  active={time === slot}
+                  onPress={() => setTime(slot)}
+                />
               ))}
             </View>
 
-            <Text style={[styles.sectionTitle, styles.bookSectionGap]}>{t('bookTime')}</Text>
-            <View style={styles.slotWrap}>
-              {TIME_SLOTS.map((s) => (
-                <FilterPill key={s} label={s} active={time === s} onPress={() => setTime(s)} />
-              ))}
-            </View>
-
-            <Text style={[styles.sectionTitle, styles.bookSectionGap]}>{t('partySize')}</Text>
-            <View style={styles.stepperRow}>
+            <Text style={[s.sectionTitle, s.sectionGap]}>{t('partySize')}</Text>
+            <View style={s.stepperRow}>
               <Pressable
-                style={styles.stepperBtn}
+                style={({ pressed }) => [s.stepBtn, pressed && s.btnSecondaryPressed]}
                 onPress={() => setPartySize((n) => Math.max(1, n - 1))}
               >
-                <Text style={styles.stepperBtnText}>−</Text>
+                <Text style={s.stepBtnText}>−</Text>
               </Pressable>
-              <Text style={styles.stepperValue}>
+              <Text style={s.stepValue}>
                 {partySize} {t('people')}
               </Text>
               <Pressable
-                style={styles.stepperBtn}
+                style={({ pressed }) => [s.stepBtn, pressed && s.btnSecondaryPressed]}
                 onPress={() => setPartySize((n) => Math.min(12, n + 1))}
               >
-                <Text style={styles.stepperBtnText}>+</Text>
+                <Text style={s.stepBtnText}>+</Text>
               </Pressable>
             </View>
 
-            <Pressable style={[styles.profileBtn, styles.bookConfirmBtn]} onPress={confirm}>
-              <Text style={styles.profileBtnText}>{t('confirmBooking')}</Text>
-            </Pressable>
+            <View style={s.sectionGap}>
+              <PrimaryButton label={t('confirmBooking')} onPress={confirm} />
+            </View>
           </>
         )}
       </ScrollView>
 
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </View>
   );
 }
 
-// THE QUICK-FIND CHAT SCREEN — message bubbles + an input row. The bot is
-// chatFind() above; tapping a result opens that restaurant's detail screen.
+// ─── QUICK FIND (CHAT) ────────────────────────────────────────────────────────
+
 function ChatScreen({
   t,
-  onBack,
   onOpenRestaurant,
 }: {
   t: (k: string) => string;
-  onBack: () => void;
   onOpenRestaurant: (restaurant: Restaurant) => void;
 }) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([{ from: 'bot', text: t('chatHello') }]);
   const [input, setInput] = useState('');
-  // A ref lets us reach the ScrollView itself, to auto-scroll to the bottom.
   const scrollRef = useRef<ScrollView>(null);
 
   function send() {
@@ -921,91 +901,96 @@ function ChatScreen({
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.back}>← {t('back')}</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{t('quickFind')}</Text>
+    <View style={s.screen}>
+      <View style={s.header}>
+        <Text style={s.wordmark}>{t('quickFind')}</Text>
       </View>
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.chatBody}
+        contentContainerStyle={s.chatBody}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {msgs.map((m, i) => (
-          <View key={i} style={styles.chatMsgBlock}>
-            <View style={m.from === 'user' ? styles.bubbleUser : styles.bubbleBot}>
-              <Text style={m.from === 'user' ? styles.bubbleUserText : styles.bubbleBotText}>
+          <View key={i}>
+            <View style={m.from === 'user' ? s.bubbleUser : s.bubbleBot}>
+              <Text style={m.from === 'user' ? s.bubbleUserText : s.bubbleBotText}>
                 {m.text}
               </Text>
             </View>
 
-            {/* Matching restaurants under the bot's reply (reuses saved-row look) */}
-            {m.results &&
-              m.results.map((r) => (
-                <Pressable key={r.id} style={styles.savedRow} onPress={() => onOpenRestaurant(r)}>
-                  <View style={styles.savedThumb}>
-                    <Text style={styles.savedThumbText}>{r.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={styles.savedName}>{r.name}</Text>
-                    <Text style={styles.savedMeta}>
-                      {r.cuisine} · {priceLabel(r.priceLevel)}
-                      {r.halal ? ' · Halal' : ''}
-                    </Text>
-                  </View>
-                  <Text style={styles.savedChevron}>›</Text>
-                </Pressable>
-              ))}
+            {m.results && m.results.length > 0 && (
+              <View style={s.listBlock}>
+                {m.results.map((r, j) => (
+                  <Pressable
+                    key={r.id}
+                    style={({ pressed }) => [
+                      s.resultRow,
+                      j === m.results!.length - 1 && s.infoRowLast,
+                      pressed && s.rowPressed,
+                    ]}
+                    onPress={() => onOpenRestaurant(r)}
+                  >
+                    <View style={s.grow}>
+                      <Text style={s.resultName} numberOfLines={1}>
+                        {r.name}
+                      </Text>
+                      <Text style={s.rowMeta} numberOfLines={1}>
+                        {r.cuisine}  ·  {priceLabel(r.priceLevel)}
+                        {r.halal ? '  ·  Halal' : ''}
+                      </Text>
+                    </View>
+                    <Text style={s.chevron}>›</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         ))}
       </ScrollView>
 
-      {/* Input row pinned under the message list */}
-      <View style={styles.chatInputRow}>
+      <View style={s.chatInputRow}>
         <TextInput
-          style={styles.chatInput}
+          style={[s.input, s.grow]}
           placeholder={t('chatPlaceholder')}
-          placeholderTextColor="#b3a695"
+          placeholderTextColor={color.ink3}
           value={input}
           onChangeText={setInput}
           onSubmitEditing={send}
+          returnKeyType="send"
         />
-        <Pressable style={styles.chatSendBtn} onPress={send}>
-          <Text style={styles.chatSendText}>{t('chatSend')}</Text>
+        <Pressable
+          style={({ pressed }) => [s.sendBtn, pressed && s.btnPrimaryPressed]}
+          onPress={send}
+        >
+          <Text style={s.btnPrimaryText}>{t('chatSend')}</Text>
         </Pressable>
       </View>
 
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </View>
   );
 }
 
-// THE PROFILE / ACCOUNT SCREEN — the user's dashboard. Shows their details,
-// account status, and activity stats, and lets them edit their name or log out.
+// ─── PROFILE ──────────────────────────────────────────────────────────────────
+
 function ProfileScreen({
   user,
-  favourites,
+  favCount,
   reviewCount,
   bookings,
-  onOpenRestaurant,
   onUpdateName,
   onLogout,
-  onBack,
   t,
   lang,
   onSetLang,
 }: {
   user: Account;
-  favourites: Restaurant[];
+  favCount: number;
   reviewCount: number;
   bookings: Booking[];
-  onOpenRestaurant: (restaurant: Restaurant) => void;
   onUpdateName: (name: string) => void;
   onLogout: () => void;
-  onBack: () => void;
   t: (k: string) => string;
   lang: Lang;
   onSetLang: (l: Lang) => void;
@@ -1014,183 +999,199 @@ function ProfileScreen({
   const [draftName, setDraftName] = useState(user.name);
 
   function save() {
-    if (draftName.trim() === '') return; // ignore an empty name
+    if (draftName.trim() === '') return;
     onUpdateName(draftName.trim());
     setEditing(false);
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.back}>← {t('back')}</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{t('myAccount')}</Text>
+    <View style={s.screen}>
+      <View style={s.header}>
+        <Text style={s.wordmark}>{t('myAccount')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.detailBody}>
-        {/* Avatar + name + email */}
-        <View style={styles.profileTop}>
-          <View style={styles.avatarBig}>
-            <Text style={styles.avatarBigText}>{user.name.charAt(0).toUpperCase()}</Text>
+      <ScrollView contentContainerStyle={s.body}>
+        {/* Identity */}
+        <View style={s.identityRow}>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
           </View>
-
-          {editing ? (
-            <TextInput
-              style={[styles.authInput, styles.nameInput]}
-              value={draftName}
-              onChangeText={setDraftName}
-              placeholder={t('yourName')}
-              placeholderTextColor="#94a3b8"
-            />
-          ) : (
-            <Text style={styles.profileName}>{user.name}</Text>
-          )}
-          <Text style={styles.profileEmail}>{user.email}</Text>
+          <View style={s.grow}>
+            {editing ? (
+              <TextInput
+                style={s.input}
+                value={draftName}
+                onChangeText={setDraftName}
+                placeholder={t('yourName')}
+                placeholderTextColor={color.ink3}
+                autoFocus
+              />
+            ) : (
+              <Text style={s.profileName} numberOfLines={1}>
+                {user.name}
+              </Text>
+            )}
+            <Text style={s.rowMeta} numberOfLines={1}>
+              {user.email}
+            </Text>
+          </View>
         </View>
 
         {editing ? (
-          <Pressable style={styles.profileBtn} onPress={save}>
-            <Text style={styles.profileBtnText}>{t('saveName')}</Text>
-          </Pressable>
+          <View style={s.btnRow}>
+            <SecondaryButton
+              grow
+              label={t('cancel')}
+              onPress={() => {
+                setDraftName(user.name);
+                setEditing(false);
+              }}
+            />
+            <View style={s.grow}>
+              <PrimaryButton label={t('saveName')} onPress={save} />
+            </View>
+          </View>
         ) : (
-          <Pressable
-            style={styles.profileBtnOutline}
+          <SecondaryButton
+            label={t('editName')}
             onPress={() => {
               setDraftName(user.name);
               setEditing(true);
             }}
-          >
-            <Text style={styles.profileBtnOutlineText}>{t('editName')}</Text>
-          </Pressable>
+          />
         )}
 
-        {/* Account info */}
-        <Text style={styles.sectionTitle}>{t('account')}</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{t('status')}</Text>
-            <Text style={styles.statusActive}>{t('active')}</Text>
+        {/* Activity */}
+        <Text style={[s.sectionTitle, s.sectionGap]}>{t('myActivity')}</Text>
+        <View style={s.statRow}>
+          <View style={s.statBox}>
+            <Text style={s.statNum}>{favCount}</Text>
+            <Text style={s.statLabel}>{t('favourites')}</Text>
           </View>
-          <View style={[styles.infoRow, styles.infoRowLast]}>
-            <Text style={styles.infoLabel}>{t('memberSince')}</Text>
-            <Text style={styles.infoValue}>{new Date(user.joinedAt).toLocaleDateString()}</Text>
-          </View>
-        </View>
-
-        {/* Language toggle */}
-        <Text style={styles.sectionTitle}>{t('language')}</Text>
-        <View style={styles.langRow}>
-          <Pressable
-            style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
-            onPress={() => onSetLang('en')}
-          >
-            <Text style={[styles.langBtnText, lang === 'en' && styles.langBtnTextActive]}>
-              English
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.langBtn, lang === 'ms' && styles.langBtnActive]}
-            onPress={() => onSetLang('ms')}
-          >
-            <Text style={[styles.langBtnText, lang === 'ms' && styles.langBtnTextActive]}>
-              Bahasa Melayu
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.langBtn, lang === 'zh' && styles.langBtnActive]}
-            onPress={() => onSetLang('zh')}
-          >
-            <Text style={[styles.langBtnText, lang === 'zh' && styles.langBtnTextActive]}>
-              中文
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Activity — Favourites is now REAL (driven by the shared state) */}
-        <Text style={styles.sectionTitle}>{t('myActivity')}</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{favourites.length}</Text>
-            <Text style={styles.statLabel}>{t('favourites')}</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{reviewCount}</Text>
-            <Text style={styles.statLabel}>{t('reviews')}</Text>
+          <View style={s.statBox}>
+            <Text style={s.statNum}>{reviewCount}</Text>
+            <Text style={s.statLabel}>{t('reviews')}</Text>
           </View>
         </View>
 
-        {/* Saved places list */}
-        <Text style={styles.sectionTitle}>{t('savedPlaces')}</Text>
-        {favourites.length === 0 ? (
-          <Text style={styles.hint}>{t('savedHint')}</Text>
+        {/* Account */}
+        <Text style={[s.sectionTitle, s.sectionGap]}>{t('account')}</Text>
+        <View style={s.infoTable}>
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>{t('status')}</Text>
+            <Text style={s.infoValueAccent}>{t('active')}</Text>
+          </View>
+          <View style={[s.infoRow, s.infoRowLast]}>
+            <Text style={s.infoLabel}>{t('memberSince')}</Text>
+            <Text style={s.infoValue}>
+              {new Date(user.joinedAt).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+
+        {/* Language */}
+        <Text style={[s.sectionTitle, s.sectionGap]}>{t('language')}</Text>
+        <Segmented
+          value={lang}
+          onChange={(k) => onSetLang(k as Lang)}
+          options={[
+            { key: 'en', label: 'English' },
+            { key: 'ms', label: 'Bahasa Melayu' },
+            { key: 'zh', label: '中文' },
+          ]}
+        />
+
+        {/* Bookings */}
+        <Text style={[s.sectionTitle, s.sectionGap]}>{t('myBookings')}</Text>
+        {bookings.length === 0 ? (
+          <Text style={s.hint}>{t('noBookings')}</Text>
         ) : (
-          favourites.map((r) => (
-            <Pressable key={r.id} style={styles.savedRow} onPress={() => onOpenRestaurant(r)}>
-              <View style={styles.savedThumb}>
-                <Text style={styles.savedThumbText}>{r.name.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.savedName}>{r.name}</Text>
-                <Text style={styles.savedMeta}>
-                  {r.cuisine} · {priceLabel(r.priceLevel)}
+          <View style={s.listBlock}>
+            {bookings.map((b, i) => (
+              <View
+                key={b.id}
+                style={[s.infoRow, i === bookings.length - 1 && s.infoRowLast]}
+              >
+                <Text style={s.infoLabel} numberOfLines={1}>
+                  {b.restaurantName}
+                </Text>
+                <Text style={s.infoValue}>
+                  {t(b.day)}  ·  {b.time}  ·  {b.partySize}
                 </Text>
               </View>
-              <Text style={styles.savedChevron}>›</Text>
-            </Pressable>
-          ))
+            ))}
+          </View>
         )}
 
-        {/* My bookings (simulated) */}
-        <Text style={styles.sectionTitle}>{t('myBookings')}</Text>
-        {bookings.length === 0 ? (
-          <Text style={styles.hint}>{t('noBookings')}</Text>
-        ) : (
-          bookings.map((b) => (
-            <View key={b.id} style={styles.bookingRow}>
-              <Text style={styles.savedName}>{b.restaurantName}</Text>
-              <Text style={styles.savedMeta}>
-                {t(b.day)} · {b.time} · {b.partySize} {t('people')}
-              </Text>
-            </View>
-          ))
-        )}
-
-        <Pressable style={styles.logoutBtn} onPress={onLogout}>
-          <Text style={styles.logoutBtnText}>{t('logout')}</Text>
-        </Pressable>
+        <View style={s.sectionGap}>
+          <Pressable
+            onPress={onLogout}
+            style={({ pressed }) => [s.logoutBtn, pressed && s.btnSecondaryPressed]}
+          >
+            <Text style={s.logoutText}>{t('logout')}</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </View>
   );
 }
 
+// ─── TAB BAR ──────────────────────────────────────────────────────────────────
+
+function TabBar({
+  tab,
+  onSelect,
+  t,
+}: {
+  tab: Tab;
+  onSelect: (tab: Tab) => void;
+  t: (k: string) => string;
+}) {
+  const items: { key: Tab; label: string }[] = [
+    { key: 'explore', label: t('explore') },
+    { key: 'saved', label: t('savedTab') },
+    { key: 'chat', label: t('quickFind') },
+    { key: 'profile', label: t('profileTab') },
+  ];
+  return (
+    <View style={s.tabBar}>
+      {items.map((i) => (
+        <Pressable key={i.key} style={s.tabItem} onPress={() => onSelect(i.key)}>
+          <Text style={[s.tabLabel, tab === i.key && s.tabLabelOn]} numberOfLines={1}>
+            {i.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+
 export default function App() {
-  // FILTER state
-  const [query, setQuery] = useState('');  // what the user typed in the search box
+  // FILTERS
+  const [query, setQuery] = useState('');
   const [halalOnly, setHalalOnly] = useState(false);
   const [cuisine, setCuisine] = useState('All');
-  const [price, setPrice] = useState(0); // 0 = Any
-  const [diet, setDiet] = useState('All'); // dietary tag filter
+  const [price, setPrice] = useState(0);
+  const [diet, setDiet] = useState('All');
 
-  // NAVIGATION state: which restaurant is open? null = none (show the list).
+  // NAVIGATION
+  const [tab, setTab] = useState<Tab>('explore');
   const [selected, setSelected] = useState<Restaurant | null>(null);
+  const [showBooking, setShowBooking] = useState(false);
 
-  // AUTH state
-  const [accounts, setAccounts] = useState<Account[]>([]); // everyone who signed up (in memory)
-  const [user, setUser] = useState<Account | null>(null);  // who's logged in? null = nobody
-  const [showProfile, setShowProfile] = useState(false);   // is the account screen open?
-  const [showChat, setShowChat] = useState(false);         // is the quick-find chat open?
-  const [showBooking, setShowBooking] = useState(false);   // is the booking screen open?
+  // AUTH
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [user, setUser] = useState<Account | null>(null);
 
-  // LANGUAGE — current language + the translate helper. t('key') returns the
-  // string for the current language, falling back to English then the key.
+  // LANGUAGE
   const [lang, setLang] = useState<Lang>('en');
   const t = (k: string) => STRINGS[lang][k] ?? STRINGS.en[k] ?? k;
 
-  // FAVOURITES — one shared list of saved restaurant ids, read by the list,
-  // the detail screen, and the profile. This is the "single source of truth".
+  // FAVOURITES — one shared list read by every screen.
   const [favourites, setFavourites] = useState<string[]>([]);
   function toggleFavourite(id: string) {
     setFavourites((prev) =>
@@ -1198,40 +1199,44 @@ export default function App() {
     );
   }
 
-  // REVIEWS — another shared list, same pattern as favourites.
+  // REVIEWS
   const [reviews, setReviews] = useState<Review[]>([]);
   function addReview(restaurantId: string, rating: number, text: string) {
     if (!user) return;
-    const review: Review = {
-      id: String(Date.now()),
-      restaurantId,
-      author: user.name,
-      authorEmail: user.email,
-      rating,
-      text,
-      at: Date.now(),
-    };
-    setReviews((prev) => [review, ...prev]); // newest first
+    setReviews((prev) => [
+      {
+        id: String(Date.now()),
+        restaurantId,
+        author: user.name,
+        authorEmail: user.email,
+        rating,
+        text,
+        at: Date.now(),
+      },
+      ...prev,
+    ]);
   }
 
-  // BOOKINGS — simulated table bookings, same shared-state + persist pattern.
+  // BOOKINGS (simulated)
   const [bookings, setBookings] = useState<Booking[]>([]);
   function addBooking(restaurant: Restaurant, day: string, time: string, partySize: number) {
     if (!user) return;
-    const booking: Booking = {
-      id: String(Date.now()),
-      restaurantId: restaurant.id,
-      restaurantName: restaurant.name,
-      userEmail: user.email,
-      day,
-      time,
-      partySize,
-      at: Date.now(),
-    };
-    setBookings((prev) => [booking, ...prev]);
+    setBookings((prev) => [
+      {
+        id: String(Date.now()),
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        userEmail: user.email,
+        day,
+        time,
+        partySize,
+        at: Date.now(),
+      },
+      ...prev,
+    ]);
   }
 
-  // PERSISTENCE — load saved data once on start, then save on every change.
+  // PERSISTENCE — load once on start, then save on every change.
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -1239,7 +1244,7 @@ export default function App() {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const data = JSON.parse(raw); // parsing stored data — guard against corruption
+          const data = JSON.parse(raw);
           setAccounts(data.accounts ?? []);
           setFavourites(data.favourites ?? []);
           setReviews(data.reviews ?? []);
@@ -1248,32 +1253,30 @@ export default function App() {
           setLang(data.lang ?? 'en');
         }
       } catch {
-        // ignore a corrupt/missing store; we just start fresh
+        // corrupt or missing store — start fresh
       }
       setLoaded(true);
     })();
   }, []);
 
   useEffect(() => {
-    if (!loaded) return; // don't overwrite storage before the initial load finishes
+    if (!loaded) return; // don't overwrite storage before the initial load lands
     AsyncStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ accounts, favourites, reviews, bookings, user, lang })
     );
   }, [loaded, accounts, favourites, reviews, bookings, user, lang]);
 
-  // Sign up: reject a duplicate email, otherwise save the account and log in.
   function handleSignup(name: string, email: string, password: string) {
     if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
       return t('errDup');
     }
-    const account = { name, email, password, joinedAt: Date.now() }; // stamp the join date
-    setAccounts([...accounts, account]); // add to the list (spread keeps the old ones)
-    setUser(account);                    // log them straight in
-    return null;                         // null = no error
+    const account = { name, email, password, joinedAt: Date.now() };
+    setAccounts([...accounts, account]);
+    setUser(account);
+    return null;
   }
 
-  // Log in: find an account whose email + password both match.
   function handleLogin(email: string, password: string) {
     const account = accounts.find(
       (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
@@ -1283,65 +1286,24 @@ export default function App() {
     return null;
   }
 
-  // Edit the logged-in user's name in BOTH the live user and the saved list.
-  // .map() rebuilds the array, swapping in the updated account for the old one.
   function handleUpdateName(newName: string) {
     if (!user) return;
-    const updated = { ...user, name: newName }; // copy the account, change the name
+    const updated = { ...user, name: newName };
     setUser(updated);
     setAccounts(accounts.map((a) => (a.email === user.email ? updated : a)));
   }
 
-  // Still loading saved data -> blank cream screen for a split second.
-  if (!loaded) {
-    return <View style={styles.screen} />;
+  function openRestaurant(r: Restaurant) {
+    setSelected(r);
   }
 
-  // Nobody logged in yet -> show only the auth screen.
+  // ── Gates ──
+  if (!loaded) return <View style={s.screen} />;
+
   if (!user) {
     return <AuthScreen onLogin={handleLogin} onSignup={handleSignup} t={t} />;
   }
 
-  // Account screen open -> show it instead of the list.
-  if (showProfile) {
-    return (
-      <ProfileScreen
-        user={user}
-        favourites={RESTAURANTS.filter((r) => favourites.includes(r.id))}
-        reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
-        bookings={bookings.filter((b) => b.userEmail === user.email)}
-        onOpenRestaurant={(r) => {
-          setShowProfile(false);
-          setSelected(r);
-        }}
-        onUpdateName={handleUpdateName}
-        onLogout={() => {
-          setShowProfile(false);
-          setUser(null);
-        }}
-        onBack={() => setShowProfile(false)}
-        t={t}
-        lang={lang}
-        onSetLang={setLang}
-      />
-    );
-  }
-
-  // Quick-find chat open -> show it instead of the list.
-  if (showChat) {
-    return (
-      <ChatScreen
-        t={t}
-        onBack={() => setShowChat(false)}
-        onOpenRestaurant={(r) => {
-          setShowChat(false);
-          setSelected(r);
-        }}
-      />
-    );
-  }
-
-  // Booking screen open (for the selected restaurant).
   if (showBooking && selected) {
     return (
       <BookingScreen
@@ -1353,7 +1315,6 @@ export default function App() {
     );
   }
 
-  // If a restaurant is open, show its detail screen instead of the list.
   if (selected) {
     return (
       <DetailScreen
@@ -1369,11 +1330,8 @@ export default function App() {
     );
   }
 
-  // THE FILTER — keep only restaurants that pass every active filter.
+  // Keep only restaurants passing every active filter.
   const visible = RESTAURANTS.filter((r) => {
-    // Search: keep only names that contain what was typed.
-    // .toLowerCase() on both sides makes it case-insensitive; .trim() drops
-    // stray spaces. An empty query passes everything (every string includes "").
     if (!r.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
     if (halalOnly && !r.halal) return false;
     if (cuisine !== 'All' && r.cuisine !== cuisine) return false;
@@ -1382,866 +1340,510 @@ export default function App() {
     return true;
   });
 
+  const savedList = RESTAURANTS.filter((r) => favourites.includes(r.id));
+
+  function renderRow(r: Restaurant) {
+    const { avg, count } = reviewStats(reviews, r.id);
+    return (
+      <RestaurantRow
+        key={r.id}
+        restaurant={r}
+        avg={avg}
+        count={count}
+        isFav={favourites.includes(r.id)}
+        onPress={() => openRestaurant(r)}
+        onToggleFav={() => toggleFavourite(r.id)}
+        t={t}
+      />
+    );
+  }
+
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          {/* Tapping the avatar / name opens the account dashboard */}
-          <Pressable style={styles.profileTap} onPress={() => setShowProfile(true)}>
-            <View style={styles.avatarSmall}>
-              <Text style={styles.avatarSmallText}>{user.name.charAt(0).toUpperCase()}</Text>
-            </View>
-            <Text style={styles.greeting}>{t('hi')} {user.name}</Text>
-          </Pressable>
-          <Pressable onPress={() => setUser(null)}>
-            <Text style={styles.logout}>{t('logout')}</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.brand}>MakanMana</Text>
-        <Text style={styles.headerSubtitle}>{t('tagline')}</Text>
-      </View>
+    <View style={s.app}>
+      {tab === 'explore' && (
+        <View style={s.screen}>
+          <View style={s.header}>
+            <Text style={s.wordmark}>MakanMana</Text>
+            <Text style={s.headerSub}>{t('tagline')}</Text>
+          </View>
 
-      {/* FILTER BAR */}
-      <View style={styles.filterBar}>
-        {/* Search box: value shows the state, onChangeText updates it on every
-            keystroke, which re-runs the filter and re-draws the list. */}
-        <TextInput
-          style={styles.search}
-          placeholder={t('search')}
-          placeholderTextColor="#94a3b8"
-          value={query}
-          onChangeText={setQuery}
+          <View style={s.filterBar}>
+            <TextInput
+              style={s.input}
+              placeholder={t('search')}
+              placeholderTextColor={color.ink3}
+              value={query}
+              onChangeText={setQuery}
+            />
+
+            {/* Refinements — binary toggles in one scrolling row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.chipRow}
+            >
+              <Chip
+                label={t('halalOnly')}
+                active={halalOnly}
+                onPress={() => setHalalOnly(!halalOnly)}
+              />
+              {DIET_TAGS.map((d) => (
+                <Chip
+                  key={d}
+                  label={t(d.toLowerCase())}
+                  active={diet === d}
+                  onPress={() => setDiet(diet === d ? 'All' : d)}
+                />
+              ))}
+            </ScrollView>
+
+            {/* Cuisine — single-select category row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.chipRow}
+            >
+              {CUISINES.map((c) => (
+                <Chip
+                  key={c}
+                  label={c === 'All' ? t('all') : c}
+                  active={cuisine === c}
+                  onPress={() => setCuisine(c)}
+                />
+              ))}
+            </ScrollView>
+
+            <Segmented
+              value={String(price)}
+              onChange={(k) => setPrice(Number(k))}
+              options={PRICE_OPTIONS.map((p) => ({
+                key: String(p),
+                label: p === 0 ? t('anyPrice') : priceLabel(p),
+              }))}
+            />
+          </View>
+
+          <ScrollView contentContainerStyle={s.listPad}>
+            <Text style={s.count}>
+              {visible.length} {visible.length === 1 ? t('place') : t('places')}
+            </Text>
+
+            {visible.map(renderRow)}
+
+            {visible.length === 0 && (
+              <View style={s.empty}>
+                <Text style={s.emptyText}>{t('noMatch')}</Text>
+                <SecondaryButton
+                  label={t('clearFilters')}
+                  onPress={() => {
+                    setQuery('');
+                    setHalalOnly(false);
+                    setCuisine('All');
+                    setPrice(0);
+                    setDiet('All');
+                  }}
+                />
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {tab === 'saved' && (
+        <View style={s.screen}>
+          <View style={s.header}>
+            <Text style={s.wordmark}>{t('savedTab')}</Text>
+            <Text style={s.headerSub}>
+              {savedList.length} {savedList.length === 1 ? t('place') : t('places')}
+            </Text>
+          </View>
+          <ScrollView contentContainerStyle={s.listPad}>
+            {savedList.length === 0 ? (
+              <Text style={s.hint}>{t('noSaved')}</Text>
+            ) : (
+              savedList.map(renderRow)
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {tab === 'chat' && <ChatScreen t={t} onOpenRestaurant={openRestaurant} />}
+
+      {tab === 'profile' && (
+        <ProfileScreen
+          user={user}
+          favCount={favourites.length}
+          reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
+          bookings={bookings.filter((b) => b.userEmail === user.email)}
+          onUpdateName={handleUpdateName}
+          onLogout={() => {
+            setTab('explore');
+            setUser(null);
+          }}
+          t={t}
+          lang={lang}
+          onSetLang={setLang}
         />
+      )}
 
-        <View style={styles.filterRow}>
-          <FilterPill
-            label={t('halalOnly')}
-            active={halalOnly}
-            onPress={() => setHalalOnly(!halalOnly)}
-          />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterRow}>
-            {CUISINES.map((c) => (
-              <FilterPill
-                key={c}
-                label={c === 'All' ? t('all') : c}
-                active={cuisine === c}
-                onPress={() => setCuisine(c)}
-              />
-            ))}
-          </View>
-        </ScrollView>
-
-        <View style={[styles.filterRow, DIET_TAGS.length <= 1 && styles.lastRow]}>
-          {PRICE_OPTIONS.map((p) => (
-            <FilterPill
-              key={p}
-              label={p === 0 ? t('anyPrice') : priceLabel(p)}
-              active={price === p}
-              onPress={() => setPrice(p)}
-            />
-          ))}
-        </View>
-
-        {/* Dietary tags (only if the data has any) */}
-        {DIET_TAGS.length > 1 && (
-          <View style={[styles.filterRow, styles.lastRow]}>
-            {DIET_TAGS.map((d) => (
-              <FilterPill
-                key={d}
-                label={d === 'All' ? t('all') : t(d.toLowerCase())}
-                active={diet === d}
-                onPress={() => setDiet(d)}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* THE LIST — tapping a card opens it by storing it in `selected` */}
-      <ScrollView contentContainerStyle={styles.list}>
-        <Text style={styles.count}>
-          {visible.length} {visible.length === 1 ? t('place') : t('places')}
-        </Text>
-
-        {visible.map((restaurant) => {
-          // Resolve the "users" rating: average of real reviews, else the seed.
-          const rs = reviews.filter((rv) => rv.restaurantId === restaurant.id);
-          const avg = rs.length
-            ? rs.reduce((sum, r) => sum + r.rating, 0) / rs.length
-            : restaurant.userRating;
-          return (
-            <RestaurantCard
-              key={restaurant.id}
-              restaurant={restaurant}
-              onPress={() => setSelected(restaurant)}
-              isFav={favourites.includes(restaurant.id)}
-              onToggleFav={() => toggleFavourite(restaurant.id)}
-              userRating={avg}
-              reviewCount={rs.length}
-              t={t}
-            />
-          );
-        })}
-
-        {visible.length === 0 && (
-          <Text style={styles.empty}>{t('noMatch')}</Text>
-        )}
-      </ScrollView>
-
-      {/* Floating button that opens the quick-find chatbot */}
-      <Pressable style={styles.fab} onPress={() => setShowChat(true)}>
-        <Text style={styles.fabText}>✦ {t('quickFind')}</Text>
-      </Pressable>
-
-      <StatusBar style="auto" />
+      <TabBar tab={tab} onSelect={setTab} t={t} />
+      <StatusBar style="dark" />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#faf6f0', // warm cream page
-  },
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  app: { flex: 1, backgroundColor: color.paper },
+  screen: { flex: 1, backgroundColor: color.paper },
+  grow: { flex: 1 },
+
+  // Headers
   header: {
-    backgroundColor: '#faf6f0',
     paddingTop: 56,
-    paddingBottom: 18,
-    paddingHorizontal: 20,
+    paddingBottom: space.lg,
+    paddingHorizontal: space.lg,
+  },
+  subHeader: {
+    paddingTop: 52,
+    paddingBottom: space.lg,
+    paddingHorizontal: space.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#ece2d4',
+    borderBottomColor: color.rule,
   },
-  back: {
-    color: '#c2410c',
-    fontSize: 15,
-    marginBottom: 12,
-    fontWeight: '600',
+  wordmark: {
+    fontFamily,
+    fontSize: size.display,
+    fontWeight: weight.bold,
+    letterSpacing: -0.6,
+    color: color.ink,
   },
-  headerTopRow: {
+  screenTitle: {
+    fontFamily,
+    fontSize: size.title,
+    fontWeight: weight.bold,
+    letterSpacing: -0.4,
+    color: color.ink,
+  },
+  headerSub: {
+    fontFamily,
+    fontSize: size.meta,
+    color: color.ink2,
+    marginTop: space.xs,
+  },
+  backLink: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.semibold,
+    color: color.accent,
+    marginBottom: space.md,
+  },
+  sectionTitle: {
+    fontFamily,
+    fontSize: size.section,
+    fontWeight: weight.semibold,
+    letterSpacing: -0.1,
+    color: color.ink,
+    marginBottom: space.md,
+  },
+  sectionGap: { marginTop: space.xl },
+
+  // Filter bar
+  filterBar: {
+    paddingHorizontal: space.lg,
+    paddingBottom: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.rule,
+  },
+  chipRow: { gap: space.sm, paddingVertical: space.sm },
+
+  // Chips — selection is ink
+  chip: {
+    paddingHorizontal: space.md,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: color.rule,
+    backgroundColor: color.paper,
+  },
+  chipPressed: { backgroundColor: color.paper2 },
+  chipActive: { backgroundColor: color.ink, borderColor: color.ink },
+  chipText: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.medium,
+    color: color.ink2,
+  },
+  chipTextActive: { color: color.paper, fontWeight: weight.semibold },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+
+  // Segmented control
+  segTrack: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: color.paper2,
+    borderRadius: radius.sm,
+    padding: 3,
+    gap: 3,
+  },
+  segItem: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 6,
     alignItems: 'center',
-    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  profileTap: {
-    flexDirection: 'row',
+  segItemOn: { backgroundColor: color.paper, borderColor: color.ruleStrong },
+  segText: {
+    fontFamily,
+    fontSize: 12,
+    fontWeight: weight.medium,
+    color: color.ink2,
+  },
+  segTextOn: { color: color.ink, fontWeight: weight.semibold },
+
+  // Buttons
+  btnPrimary: {
+    backgroundColor: color.accent,
+    borderRadius: radius.md,
+    paddingVertical: 14,
     alignItems: 'center',
-    gap: 8,
   },
-  avatarSmall: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: '#efe4d4',
+  btnPrimaryPressed: { backgroundColor: color.accentPressed },
+  btnPrimaryText: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.accentInk,
+  },
+  btnSecondary: {
+    backgroundColor: color.paper,
+    borderWidth: 1,
+    borderColor: color.ruleStrong,
+    borderRadius: radius.md,
+    paddingVertical: 13,
+    paddingHorizontal: space.lg,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  avatarSmallText: {
-    fontFamily: SERIF,
-    color: '#c2410c',
-    fontWeight: 'bold',
-    fontSize: 15,
+  btnSecondaryPressed: { backgroundColor: color.paper2 },
+  btnSecondaryText: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.ink,
   },
-  greeting: {
-    color: '#3b2f26',
-    fontSize: 14,
-    fontWeight: '600',
+  btnRow: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+
+  // Fields
+  field: { marginBottom: space.lg },
+  fieldLabel: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.semibold,
+    color: color.ink2,
+    marginBottom: space.sm,
   },
-  logout: {
-    color: '#a1917f',
-    fontSize: 13,
-    fontWeight: '600',
+  input: {
+    fontFamily,
+    backgroundColor: color.paper2,
+    borderWidth: 1,
+    borderColor: color.rule,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: 11,
+    fontSize: size.body,
+    color: color.ink,
   },
-  // List brand title (serif)
-  brand: {
-    fontFamily: SERIF,
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#2b2019',
-    letterSpacing: 0.2,
+  textarea: { minHeight: 76, textAlignVertical: 'top', marginTop: space.md },
+  error: {
+    fontFamily,
+    fontSize: size.meta,
+    color: color.danger,
+    marginBottom: space.md,
   },
-  // Profile / account screen
-  profileTop: {
-    alignItems: 'center',
-    marginBottom: 20,
+
+  // Auth
+  authWrap: { paddingHorizontal: space.lg, paddingTop: 88, paddingBottom: space.xxl },
+  authTitle: {
+    fontFamily,
+    fontSize: size.title,
+    fontWeight: weight.bold,
+    letterSpacing: -0.4,
+    color: color.ink,
+    marginTop: space.xxl,
+    marginBottom: space.lg,
   },
-  avatarBig: {
-    width: 80,
-    height: 80,
-    borderRadius: 999,
-    backgroundColor: '#efe4d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarBigText: {
-    fontFamily: SERIF,
-    color: '#c2410c',
-    fontWeight: 'bold',
-    fontSize: 34,
-  },
-  profileName: {
-    fontFamily: SERIF,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2b2019',
-  },
-  profileEmail: {
-    fontSize: 14,
-    color: '#8a7b6c',
-    marginTop: 2,
-  },
-  nameInput: {
-    minWidth: 220,
+  authSwitch: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.semibold,
+    color: color.accent,
     textAlign: 'center',
-    marginBottom: 0,
+    marginTop: space.lg,
   },
-  profileBtn: {
-    backgroundColor: '#c2410c',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 14,
+
+  // Lists
+  listPad: { paddingHorizontal: space.lg, paddingBottom: space.xxl },
+  count: {
+    fontFamily,
+    fontSize: size.meta,
+    color: color.ink3,
+    paddingVertical: space.md,
   },
-  profileBtnText: {
-    color: '#fdf6ee',
-    fontSize: 15,
-    fontWeight: 'bold',
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: color.rule,
   },
-  profileBtnOutline: {
+  rowMain: { flex: 1, paddingVertical: space.lg, paddingRight: space.sm },
+  rowPressed: { backgroundColor: color.paper2 },
+  rowTitle: {
+    fontFamily,
+    fontSize: size.rowTitle,
+    fontWeight: weight.semibold,
+    letterSpacing: -0.2,
+    color: color.ink,
+  },
+  rowMeta: {
+    fontFamily,
+    fontSize: size.meta,
+    color: color.ink2,
+    marginTop: 3,
+  },
+  rowRating: { fontWeight: weight.semibold, color: color.ink },
+  star: { color: color.star },
+  heartHit: { paddingTop: space.lg, paddingLeft: space.sm },
+  heart: { fontSize: 20, color: color.ink3 },
+  heartOn: { color: color.accent },
+
+  // Badges
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
+  badgeHalal: {
+    fontFamily,
+    fontSize: size.micro,
+    fontWeight: weight.semibold,
+    letterSpacing: 0.2,
+    color: color.accentPressed,
+    backgroundColor: color.accentTint,
+    paddingHorizontal: space.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  badgeNeutral: {
+    fontFamily,
+    fontSize: size.micro,
+    fontWeight: weight.semibold,
+    letterSpacing: 0.2,
+    color: color.ink2,
+    backgroundColor: color.paper2,
+    paddingHorizontal: space.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+
+  // Empty states
+  empty: { paddingTop: space.xxl, gap: space.lg },
+  emptyText: {
+    fontFamily,
+    fontSize: size.body,
+    color: color.ink2,
+    textAlign: 'center',
+  },
+  hint: { fontFamily, fontSize: size.meta, color: color.ink3, lineHeight: 20 },
+
+  // Detail
+  body: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xxxl },
+  ratingBlock: { marginBottom: space.lg },
+  ratingBig: {
+    fontFamily,
+    fontSize: 22,
+    fontWeight: weight.bold,
+    letterSpacing: -0.4,
+    color: color.ink,
+  },
+  ratingBigSub: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.regular,
+    color: color.ink2,
+  },
+  ratingNone: { fontFamily, fontSize: size.body, color: color.ink2 },
+
+  card: {
+    backgroundColor: color.paper,
     borderWidth: 1,
-    borderColor: '#dcc9b0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 14,
+    borderColor: color.rule,
+    borderRadius: radius.md,
+    padding: space.lg,
   },
-  profileBtnOutlineText: {
-    color: '#c2410c',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  infoCard: {
-    backgroundColor: '#fffdfa',
+  listBlock: {
     borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderColor: color.rule,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  infoTable: {
+    borderWidth: 1,
+    borderColor: color.rule,
+    borderRadius: radius.md,
+    marginTop: space.lg,
+    marginBottom: space.xl,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    alignItems: 'flex-start',
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f2ebdf',
+    borderBottomColor: color.rule,
   },
-  infoRowLast: {
-    borderBottomWidth: 0,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#8a7b6c',
-  },
+  infoRowLast: { borderBottomWidth: 0 },
+  infoLabel: { fontFamily, fontSize: size.meta, color: color.ink2, flexShrink: 1 },
   infoValue: {
-    fontSize: 14,
-    color: '#2b2019',
-    fontWeight: '600',
-  },
-  statusActive: {
-    fontSize: 14,
-    color: '#5f7a4d',
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 14,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  statNum: {
-    fontFamily: SERIF,
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#c2410c',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#8a7b6c',
-    marginTop: 2,
-  },
-  hint: {
-    fontSize: 12,
-    color: '#b3a695',
-    marginTop: 10,
-  },
-  logoutBtn: {
-    backgroundColor: '#f6e9e2',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 28,
-  },
-  logoutBtnText: {
-    color: '#b04a2f',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  langRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  langBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-    backgroundColor: '#fffdfa',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  langBtnActive: {
-    backgroundColor: '#c2410c',
-    borderColor: '#c2410c',
-  },
-  langBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8a7b6c',
-    textAlign: 'center',
-  },
-  langBtnTextActive: {
-    color: '#fdf6ee',
-  },
-  // Auth screen
-  authWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  authLogo: {
-    fontFamily: SERIF,
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: '#c2410c',
-    textAlign: 'center',
-  },
-  authTagline: {
-    fontSize: 14,
-    color: '#8a7b6c',
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 28,
-  },
-  authCard: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 20,
-    padding: 22,
-  },
-  authTitle: {
-    fontFamily: SERIF,
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2b2019',
-    marginBottom: 16,
-  },
-  authInput: {
-    backgroundColor: '#f6efe4',
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#2b2019',
-    marginBottom: 12,
-  },
-  authError: {
-    color: '#b04a2f',
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  authButton: {
-    backgroundColor: '#c2410c',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  authButtonText: {
-    color: '#fdf6ee',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  authSwitch: {
-    color: '#c2410c',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontFamily: SERIF,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2b2019',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#8a7b6c',
-    marginTop: 4,
-  },
-  filterBar: {
-    backgroundColor: '#faf6f0',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ece2d4',
-  },
-  search: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#2b2019',
-    marginBottom: 12,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  lastRow: {
-    marginBottom: 0,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-  },
-  pillActive: {
-    backgroundColor: '#c2410c',
-    borderColor: '#c2410c',
-  },
-  pillText: {
-    fontSize: 13,
-    color: '#8a7b6c',
-    fontWeight: '600',
-  },
-  pillTextActive: {
-    color: '#fdf6ee',
-  },
-  list: {
-    padding: 16,
-  },
-  count: {
-    fontSize: 12,
-    color: '#a1917f',
-    marginBottom: 10,
-    marginLeft: 2,
-  },
-  empty: {
-    fontSize: 14,
-    color: '#b3a695',
-    textAlign: 'center',
-    marginTop: 24,
-  },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heart: {
-    paddingLeft: 10,
-    paddingVertical: 4,
-  },
-  heartIcon: {
-    fontSize: 22,
-    color: '#cbb9a4',
-  },
-  heartActive: {
-    color: '#c2410c',
-  },
-  saveBtn: {
-    borderWidth: 1,
-    borderColor: '#dcc9b0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  dirBtn: {
-    borderWidth: 1,
-    borderColor: '#dcc9b0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dirBtnText: {
-    color: '#c2410c',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  bookBtn: {
-    backgroundColor: '#c2410c',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  bookBtnText: {
-    color: '#fdf6ee',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  bookSectionGap: {
-    marginTop: 20,
-  },
-  slotWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-  },
-  stepperBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#dcc9b0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnText: {
-    fontSize: 22,
-    color: '#c2410c',
-    fontWeight: 'bold',
-  },
-  stepperValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2b2019',
-    minWidth: 90,
-    textAlign: 'center',
-  },
-  bookConfirmBtn: {
-    marginTop: 28,
-  },
-  confirmCard: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-  },
-  confirmTick: {
-    fontSize: 40,
-    color: '#5f7a4d',
-    marginBottom: 8,
-  },
-  confirmTitle: {
-    fontFamily: SERIF,
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2b2019',
-    marginBottom: 12,
-  },
-  confirmLine: {
-    fontSize: 15,
-    color: '#5c5044',
-    marginBottom: 2,
-  },
-  confirmNote: {
-    fontSize: 12,
-    color: '#b3a695',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  bookingRow: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  detailInfoCard: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  infoValueWrap: {
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: 16,
-  },
-  saveBtnActive: {
-    backgroundColor: '#c2410c',
-    borderColor: '#c2410c',
-  },
-  saveBtnText: {
-    color: '#c2410c',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  saveBtnTextActive: {
-    color: '#fdf6ee',
-  },
-  savedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-  },
-  savedThumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#efe4d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  savedThumbText: {
-    fontFamily: SERIF,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#c2410c',
-  },
-  savedName: {
-    fontFamily: SERIF,
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#2b2019',
-  },
-  savedMeta: {
-    fontSize: 12,
-    color: '#8a7b6c',
-    marginTop: 2,
-  },
-  savedChevron: {
-    fontSize: 22,
-    color: '#c9bba9',
-    paddingHorizontal: 6,
-  },
-  cardThumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#efe4d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  cardThumbText: {
-    fontFamily: SERIF,
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#c2410c',
-  },
-  cardBody: {
-    flex: 1,
-  },
-  name: {
-    fontFamily: SERIF,
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#2b2019',
-  },
-  tagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 6,
-  },
-  cuisine: {
-    fontSize: 13,
-    color: '#8a7b6c',
-  },
-  dot: {
-    fontSize: 13,
-    color: '#c9bba9',
-  },
-  price: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#c2410c',
-  },
-  halalBadge: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#5f7a4d',
-    backgroundColor: '#e8efdf',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginLeft: 2,
-  },
-  tagPill: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#3f7a6a',
-    backgroundColor: '#e0eeea',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  star: {
-    color: '#c2410c',
-  },
-  rating: {
-    fontSize: 13,
-    color: '#5c5044',
-  },
-  meta: {
-    fontSize: 12,
-    color: '#b3a695',
-    marginTop: 6,
-  },
-  // Detail screen
-  detailBody: {
-    padding: 16,
-  },
-  detailInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontFamily: SERIF,
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: '#2b2019',
-    marginBottom: 12,
-  },
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.medium,
+    color: color.ink,
+  },
+  infoValueAccent: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.semibold,
+    color: color.accent,
+  },
+  infoValueWrap: { flex: 1, textAlign: 'right', marginLeft: space.lg },
+
   menuRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-  },
-  menuName: {
-    fontSize: 15,
-    color: '#2b2019',
-  },
-  menuPrice: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#c2410c',
-  },
-  // Reviews
-  reviewsTitle: {
-    marginTop: 24,
-  },
-  reviewForm: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-  },
-  reviewFormLabel: {
-    fontSize: 13,
-    color: '#8a7b6c',
-    marginBottom: 6,
-  },
-  starPickRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 12,
-  },
-  starPick: {
-    fontSize: 28,
-    color: '#dcc9b0',
-  },
-  starPickOn: {
-    color: '#c2410c',
-  },
-  reviewInput: {
-    backgroundColor: '#f6efe4',
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#2b2019',
-    minHeight: 44,
-    marginBottom: 12,
-  },
-  reviewSubmit: {
-    backgroundColor: '#c2410c',
-    borderRadius: 10,
-    paddingVertical: 11,
     alignItems: 'center',
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.rule,
   },
-  reviewSubmitText: {
-    color: '#fdf6ee',
-    fontSize: 14,
-    fontWeight: 'bold',
+  menuName: { fontFamily, fontSize: size.body, color: color.ink, flexShrink: 1 },
+  menuPrice: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.ink,
   },
+
+  // Review form + list
+  starPickRow: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
+  starPick: { fontSize: 28, color: color.ink3 },
+  starPickOn: { color: color.star },
   reviewRow: {
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.rule,
   },
   reviewHead: {
     flexDirection: 'row',
@@ -2249,106 +1851,176 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reviewAuthor: {
-    fontFamily: SERIF,
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#2b2019',
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.ink,
   },
-  reviewStars: {
-    fontSize: 13,
-    color: '#c2410c',
-  },
+  reviewStars: { fontFamily, fontSize: size.meta, color: color.star },
   reviewText: {
-    fontSize: 14,
-    color: '#5c5044',
-    marginTop: 6,
-    lineHeight: 20,
+    fontFamily,
+    fontSize: size.body,
+    color: color.ink2,
+    lineHeight: 21,
+    marginTop: space.sm,
   },
-  reviewDate: {
-    fontSize: 11,
-    color: '#b3a695',
-    marginTop: 6,
-  },
-  // Quick-find chat
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
-    backgroundColor: '#c2410c',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-  },
-  fabText: {
-    color: '#fdf6ee',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  chatBody: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  chatMsgBlock: {
-    width: '100%',
-  },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#c2410c',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 10,
-    maxWidth: '80%',
-  },
-  bubbleUserText: {
-    color: '#fdf6ee',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  bubbleBot: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fffdfa',
+  reviewDate: { fontFamily, fontSize: size.micro, color: color.ink3, marginTop: space.sm },
+
+  // Booking
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
+  stepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#ece2d4',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 10,
-    maxWidth: '85%',
-  },
-  bubbleBotText: {
-    color: '#2b2019',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  chatInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#ece2d4',
-    backgroundColor: '#faf6f0',
-  },
-  chatInput: {
-    flex: 1,
-    backgroundColor: '#fffdfa',
-    borderWidth: 1,
-    borderColor: '#e4d8c6',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#2b2019',
-  },
-  chatSendBtn: {
-    backgroundColor: '#c2410c',
-    borderRadius: 12,
-    paddingHorizontal: 18,
+    borderColor: color.ruleStrong,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  chatSendText: {
-    color: '#fdf6ee',
-    fontSize: 14,
-    fontWeight: 'bold',
+  stepBtnText: { fontFamily, fontSize: 20, fontWeight: weight.medium, color: color.ink },
+  stepValue: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.ink,
+    minWidth: 96,
+    textAlign: 'center',
   },
+  tickWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: color.accentTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space.md,
+  },
+  tick: { fontFamily, fontSize: 22, fontWeight: weight.bold, color: color.accent },
+  confirmTitle: {
+    fontFamily,
+    fontSize: size.title,
+    fontWeight: weight.bold,
+    letterSpacing: -0.4,
+    color: color.ink,
+  },
+
+  // Chat
+  chatBody: { padding: space.lg, gap: space.md, flexGrow: 1 },
+  bubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: color.accent,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 10,
+    maxWidth: '82%',
+  },
+  bubbleUserText: { fontFamily, fontSize: size.body, color: color.accentInk, lineHeight: 20 },
+  bubbleBot: {
+    alignSelf: 'flex-start',
+    backgroundColor: color.paper2,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 10,
+    maxWidth: '88%',
+  },
+  bubbleBotText: { fontFamily, fontSize: size.body, color: color.ink, lineHeight: 20 },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.rule,
+  },
+  resultName: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.ink,
+  },
+  chevron: { fontFamily, fontSize: 22, color: color.ink3, paddingLeft: space.sm },
+  chatInputRow: {
+    flexDirection: 'row',
+    gap: space.sm,
+    padding: space.md,
+    borderTopWidth: 1,
+    borderTopColor: color.rule,
+  },
+  sendBtn: {
+    backgroundColor: color.accent,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.lg,
+    justifyContent: 'center',
+  },
+
+  // Profile
+  identityRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: color.paper2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily,
+    fontSize: 20,
+    fontWeight: weight.semibold,
+    color: color.ink,
+  },
+  profileName: {
+    fontFamily,
+    fontSize: size.title,
+    fontWeight: weight.bold,
+    letterSpacing: -0.4,
+    color: color.ink,
+  },
+  statRow: { flexDirection: 'row', gap: space.md },
+  statBox: {
+    flex: 1,
+    backgroundColor: color.paper2,
+    borderRadius: radius.md,
+    paddingVertical: space.lg,
+    alignItems: 'center',
+  },
+  statNum: {
+    fontFamily,
+    fontSize: 26,
+    fontWeight: weight.bold,
+    letterSpacing: -0.5,
+    color: color.ink,
+  },
+  statLabel: { fontFamily, fontSize: size.meta, color: color.ink2, marginTop: 2 },
+  logoutBtn: {
+    borderWidth: 1,
+    borderColor: color.ruleStrong,
+    borderRadius: radius.md,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  logoutText: {
+    fontFamily,
+    fontSize: size.body,
+    fontWeight: weight.semibold,
+    color: color.danger,
+  },
+
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: color.rule,
+    backgroundColor: color.paper,
+    paddingTop: space.md,
+    paddingBottom: space.xl,
+  },
+  tabItem: { flex: 1, alignItems: 'center', paddingVertical: space.xs },
+  tabLabel: {
+    fontFamily,
+    fontSize: size.meta,
+    fontWeight: weight.medium,
+    color: color.ink3,
+  },
+  tabLabelOn: { color: color.accent, fontWeight: weight.bold },
 });
