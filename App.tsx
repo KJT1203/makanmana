@@ -5,12 +5,15 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { supabase } from './supabase';
 import { color, fontFamily, radius, size, space, weight } from './theme';
 
-// One key holds everything we persist as a single JSON blob.
+// Local storage now holds only the language preference; accounts, favourites,
+// reviews and bookings live on the server.
 const STORAGE_KEY = 'makanmana';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -35,32 +38,31 @@ type Restaurant = {
 type Review = {
   id: string;
   restaurantId: string;
-  author: string;
-  authorEmail: string;
+  userId: string;
+  author: string;   // display name, joined from the author's profile
   rating: number;
   text: string;
   at: number;
 };
 
+// Bookings and favourites carry no owner field: the database's Row Level
+// Security policies scope every query to the signed-in account, so anything
+// returned already belongs to that user.
 type Booking = {
   id: string;
   restaurantId: string;
   restaurantName: string;
-  userEmail: string;
   day: string;
   time: string;
   partySize: number;
   at: number;
 };
 
-// A saved restaurant, tied to the account that saved it. Storing the owner
-// here (rather than a bare list of ids) keeps favourites private to each
-// account when several people share a device.
-type Favourite = { userEmail: string; restaurantId: string };
-
 type ChatMsg = { from: 'user' | 'bot'; text: string; results?: Restaurant[] };
 
-type Account = { name: string; email: string; password: string; joinedAt: number };
+// The signed-in user. No password field: credentials are held and verified by
+// Supabase Auth, so the application never stores or sees them.
+type Account = { id: string; name: string; email: string; joinedAt: number };
 
 type Tab = 'explore' | 'saved' | 'chat' | 'profile';
 
@@ -155,7 +157,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     toSignup: 'New here? Create an account', toLogin: 'Already have an account? Log in',
     errName: 'Enter your name.', errEmail: 'Enter your email.',
     errPassword: 'Enter a password.', errDup: 'That email is already registered.',
-    errWrong: 'Wrong email or password.',
+    errWrong: 'Wrong email or password.', pleaseWait: 'Please wait…',
+    errConfirmEmail: 'Account created. Check your email to confirm it, then log in.',
+    errOffline: 'Cannot reach the server. Check your connection.',
     myAccount: 'My account', editName: 'Edit name', saveName: 'Save',
     cancel: 'Cancel', yourName: 'Your name',
     account: 'Account', status: 'Status', active: 'Active',
@@ -199,7 +203,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     toSignup: 'Baharu di sini? Cipta akaun', toLogin: 'Sudah ada akaun? Log masuk',
     errName: 'Masukkan nama anda.', errEmail: 'Masukkan e-mel anda.',
     errPassword: 'Masukkan kata laluan.', errDup: 'E-mel itu telah didaftarkan.',
-    errWrong: 'E-mel atau kata laluan salah.',
+    errWrong: 'E-mel atau kata laluan salah.', pleaseWait: 'Sila tunggu…',
+    errConfirmEmail: 'Akaun dicipta. Sila sahkan melalui e-mel anda, kemudian log masuk.',
+    errOffline: 'Tidak dapat menghubungi pelayan. Sila semak sambungan anda.',
     myAccount: 'Akaun saya', editName: 'Edit nama', saveName: 'Simpan',
     cancel: 'Batal', yourName: 'Nama anda',
     account: 'Akaun', status: 'Status', active: 'Aktif',
@@ -243,7 +249,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     toSignup: '新用户？创建账户', toLogin: '已有账户？登录',
     errName: '请输入姓名。', errEmail: '请输入电子邮箱。',
     errPassword: '请输入密码。', errDup: '该电子邮箱已被注册。',
-    errWrong: '电子邮箱或密码错误。',
+    errWrong: '电子邮箱或密码错误。', pleaseWait: '请稍候…',
+    errConfirmEmail: '账户已创建。请查收邮件完成确认后再登录。',
+    errOffline: '无法连接服务器。请检查网络连接。',
     myAccount: '我的账户', editName: '修改姓名', saveName: '保存',
     cancel: '取消', yourName: '你的姓名',
     account: '账户', status: '状态', active: '活跃',
@@ -512,8 +520,8 @@ function AuthScreen({
   onSignup,
   t,
 }: {
-  onLogin: (email: string, password: string) => string | null;
-  onSignup: (name: string, email: string, password: string) => string | null;
+  onLogin: (email: string, password: string) => Promise<string | null>;
+  onSignup: (name: string, email: string, password: string) => Promise<string | null>;
   t: (k: string) => string;
 }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -521,17 +529,24 @@ function AuthScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const isSignup = mode === 'signup';
 
-  function submit() {
+  // Both handlers now reach the server, so the button reports progress and is
+  // guarded against a second submission while the first is in flight.
+  async function submit() {
+    if (busy) return;
     if (isSignup && name.trim() === '') return setError(t('errName'));
     if (email.trim() === '') return setError(t('errEmail'));
     if (password === '') return setError(t('errPassword'));
 
+    setError('');
+    setBusy(true);
     const problem = isSignup
-      ? onSignup(name.trim(), email.trim(), password)
-      : onLogin(email.trim(), password);
+      ? await onSignup(name.trim(), email.trim(), password)
+      : await onLogin(email.trim(), password);
+    setBusy(false);
     if (problem) setError(problem);
   }
 
@@ -570,7 +585,10 @@ function AuthScreen({
 
         {error !== '' && <Text style={s.error}>{error}</Text>}
 
-        <PrimaryButton label={isSignup ? t('signup') : t('login')} onPress={submit} />
+        <PrimaryButton
+          label={busy ? t('pleaseWait') : isSignup ? t('signup') : t('login')}
+          onPress={submit}
+        />
 
         <Pressable
           onPress={() => {
@@ -1188,131 +1206,207 @@ export default function App() {
   const [selected, setSelected] = useState<Restaurant | null>(null);
   const [showBooking, setShowBooking] = useState(false);
 
-  // AUTH
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  // AUTH — Supabase Auth owns credentials and the session.
   const [user, setUser] = useState<Account | null>(null);
 
-  // LANGUAGE
+  // LANGUAGE — the one piece of state that stays on the device, since it is a
+  // display preference rather than user data.
   const [lang, setLang] = useState<Lang>('en');
   const t = (k: string) => STRINGS[lang][k] ?? STRINGS.en[k] ?? k;
 
-  // FAVOURITES — one shared list read by every screen.
-  const [favourites, setFavourites] = useState<Favourite[]>([]);
-
-  // The signed-in account's saved restaurant ids.
-  const myFavourites = user
-    ? favourites.filter((f) => f.userEmail === user.email).map((f) => f.restaurantId)
-    : [];
-
-  function toggleFavourite(id: string) {
-    if (!user) return;
-    const mine = (f: Favourite) => f.userEmail === user.email && f.restaurantId === id;
-    setFavourites((prev) =>
-      prev.some(mine) ? prev.filter((f) => !mine(f)) : [...prev, { userEmail: user.email, restaurantId: id }]
-    );
-  }
-
-  // REVIEWS
-  const [reviews, setReviews] = useState<Review[]>([]);
-  function addReview(restaurantId: string, rating: number, text: string) {
-    if (!user) return;
-    setReviews((prev) => [
-      {
-        id: String(Date.now()),
-        restaurantId,
-        author: user.name,
-        authorEmail: user.email,
-        rating,
-        text,
-        at: Date.now(),
-      },
-      ...prev,
-    ]);
-  }
-
-  // BOOKINGS (simulated)
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  function addBooking(restaurant: Restaurant, day: string, time: string, partySize: number) {
-    if (!user) return;
-    setBookings((prev) => [
-      {
-        id: String(Date.now()),
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        userEmail: user.email,
-        day,
-        time,
-        partySize,
-        at: Date.now(),
-      },
-      ...prev,
-    ]);
-  }
-
-  // PERSISTENCE — load once on start, then save on every change.
+  // SERVER DATA. Favourites are a plain list of restaurant ids: the row level
+  // security policy already restricts every query to the signed-in account, so
+  // whatever comes back belongs to this user.
+  const [myFavourites, setMyFavourites] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);   // every user's reviews
+  const [bookings, setBookings] = useState<Booking[]>([]); // this user's bookings
   const [loaded, setLoaded] = useState(false);
 
+  // Load the language preference once; it is not tied to an account.
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const data = JSON.parse(raw);
-          setAccounts(data.accounts ?? []);
-          // Older builds stored favourites as a bare list of restaurant ids.
-          // Attach any of those to the account being restored so they survive.
-          const savedFavs = data.favourites ?? [];
-          setFavourites(
-            savedFavs.map((f: string | Favourite) =>
-              typeof f === 'string'
-                ? { userEmail: data.user?.email ?? '', restaurantId: f }
-                : f
-            )
-          );
-          setReviews(data.reviews ?? []);
-          setBookings(data.bookings ?? []);
-          setUser(data.user ?? null);
-          setLang(data.lang ?? 'en');
-        }
+        if (raw) setLang(JSON.parse(raw).lang ?? 'en');
       } catch {
-        // corrupt or missing store — start fresh
+        // no stored preference — English is the default
       }
-      setLoaded(true);
     })();
   }, []);
 
   useEffect(() => {
-    if (!loaded) return; // don't overwrite storage before the initial load lands
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ accounts, favourites, reviews, bookings, user, lang })
-    );
-  }, [loaded, accounts, favourites, reviews, bookings, user, lang]);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ lang }));
+  }, [lang]);
 
-  function handleSignup(name: string, email: string, password: string) {
-    if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
-      return t('errDup');
+  // Turn a Supabase session into the profile the screens expect.
+  async function loadProfile(session: Session | null) {
+    if (!session) {
+      setUser(null);
+      return;
     }
-    const account = { name, email, password, joinedAt: Date.now() };
-    setAccounts([...accounts, account]);
-    setUser(account);
-    return null;
+    const { data } = await supabase
+      .from('profiles')
+      .select('name, created_at')
+      .eq('id', session.user.id)
+      .single();
+    setUser({
+      id: session.user.id,
+      name: data?.name ?? 'User',
+      email: session.user.email ?? '',
+      joinedAt: new Date(data?.created_at ?? session.user.created_at).getTime(),
+    });
   }
 
-  function handleLogin(email: string, password: string) {
-    const account = accounts.find(
-      (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
+  // Restore an existing session on start, then follow every auth change.
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      await loadProfile(data.session);
+      setLoaded(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadProfile(session);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Fetch this user's data whenever the signed-in account changes.
+  useEffect(() => {
+    if (!user) {
+      setMyFavourites([]);
+      setReviews([]);
+      setBookings([]);
+      return;
+    }
+    refreshFavourites();
+    refreshReviews();
+    refreshBookings();
+  }, [user?.id]);
+
+  async function refreshFavourites() {
+    const { data } = await supabase.from('favourites').select('restaurant_id');
+    setMyFavourites((data ?? []).map((r) => r.restaurant_id));
+  }
+
+  // Reviews are communal: every user's reviews are returned, and the author's
+  // display name is attached from the profiles table.
+  //
+  // Names are fetched separately rather than through an embedded join. A join
+  // would be one request instead of two, but it depends on the Data API having
+  // the reviews-to-profiles foreign key in its schema cache, which is not
+  // guaranteed immediately after the tables are created. Two plain queries
+  // always work, and the profile table is small.
+  async function refreshReviews() {
+    const [{ data: rows }, { data: people }] = await Promise.all([
+      supabase
+        .from('reviews')
+        .select('id, restaurant_id, user_id, rating, body, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, name'),
+    ]);
+
+    const nameById = new Map((people ?? []).map((p: any) => [p.id, p.name]));
+    setReviews(
+      (rows ?? []).map((r: any) => ({
+        id: r.id,
+        restaurantId: r.restaurant_id,
+        userId: r.user_id,
+        author: nameById.get(r.user_id) ?? 'User',
+        rating: r.rating,
+        text: r.body ?? '',
+        at: new Date(r.created_at).getTime(),
+      }))
     );
-    if (!account) return t('errWrong');
-    setUser(account);
+  }
+
+  async function refreshBookings() {
+    const { data } = await supabase
+      .from('bookings')
+      .select('id, restaurant_id, restaurant_name, day, slot_time, party_size, created_at')
+      .order('created_at', { ascending: false });
+    setBookings(
+      (data ?? []).map((b: any) => ({
+        id: b.id,
+        restaurantId: b.restaurant_id,
+        restaurantName: b.restaurant_name,
+        day: b.day,
+        time: b.slot_time,
+        partySize: b.party_size,
+        at: new Date(b.created_at).getTime(),
+      }))
+    );
+  }
+
+  // Update the screen first so the heart responds immediately, then write to
+  // the server and reconcile if the write failed.
+  async function toggleFavourite(id: string) {
+    if (!user) return;
+    const wasSaved = myFavourites.includes(id);
+    setMyFavourites((prev) => (wasSaved ? prev.filter((x) => x !== id) : [...prev, id]));
+
+    const { error } = wasSaved
+      ? await supabase.from('favourites').delete().eq('restaurant_id', id).eq('user_id', user.id)
+      : await supabase.from('favourites').insert({ restaurant_id: id, user_id: user.id });
+
+    if (error) refreshFavourites(); // put the screen back in step with the server
+  }
+
+  // Upsert, because the unique constraint allows one review per person per
+  // restaurant — posting again edits the existing review rather than failing.
+  async function addReview(restaurantId: string, rating: number, text: string) {
+    if (!user) return;
+    await supabase
+      .from('reviews')
+      .upsert(
+        { restaurant_id: restaurantId, user_id: user.id, rating, body: text },
+        { onConflict: 'restaurant_id,user_id' }
+      );
+    refreshReviews();
+  }
+
+  async function addBooking(restaurant: Restaurant, day: string, time: string, partySize: number) {
+    if (!user) return;
+    await supabase.from('bookings').insert({
+      user_id: user.id,
+      restaurant_id: restaurant.id,
+      restaurant_name: restaurant.name,
+      day,
+      slot_time: time,
+      party_size: partySize,
+    });
+    refreshBookings();
+  }
+
+  // Supabase reports its own errors; they are clearer than anything generic we
+  // could substitute (for example, that a password is too short).
+  async function handleSignup(name: string, email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } }, // the trigger reads this to create the profile
+    });
+    if (error) return error.message;
+    // If the project requires email confirmation, sign-up succeeds but returns
+    // no session. Say so, rather than appearing to do nothing.
+    if (!data.session) return t('errConfirmEmail');
     return null;
   }
 
-  function handleUpdateName(newName: string) {
+  async function handleLogin(email: string, password: string) {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return error.message;
+    return null;
+  }
+
+  async function handleUpdateName(newName: string) {
     if (!user) return;
-    const updated = { ...user, name: newName };
-    setUser(updated);
-    setAccounts(accounts.map((a) => (a.email === user.email ? updated : a)));
+    setUser({ ...user, name: newName });
+    await supabase.from('profiles').update({ name: newName }).eq('id', user.id);
+    refreshReviews(); // the author name shown on this user's reviews changes too
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
   }
 
   function openRestaurant(r: Restaurant) {
@@ -1495,12 +1589,12 @@ export default function App() {
         <ProfileScreen
           user={user}
           favCount={myFavourites.length}
-          reviewCount={reviews.filter((rv) => rv.authorEmail === user.email).length}
-          bookings={bookings.filter((b) => b.userEmail === user.email)}
+          reviewCount={reviews.filter((rv) => rv.userId === user.id).length}
+          bookings={bookings}
           onUpdateName={handleUpdateName}
           onLogout={() => {
             setTab('explore');
-            setUser(null);
+            handleLogout();
           }}
           t={t}
           lang={lang}
