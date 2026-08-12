@@ -37,6 +37,16 @@ const TARGETS = [
   { id: '9', query: 'Mix And Fuse Restaurant, Taman Connaught, Cheras' },
   { id: '10', query: 'Astarry Cafe, Taman Connaught, Cheras' },
   { id: '11', query: 'Nasi Kandar Nj Bistro, Taman Connaught, Cheras' },
+  // Added from further Google Maps views along Jalan Menara Gading 1.
+  { id: '12', query: 'Ming Yang Kopitiam, Jalan Menara Gading 1, Cheras' },
+  { id: '13', query: 'Kungfu Ramen, Taman Connaught, Cheras' },
+  { id: '14', query: 'Tai Chong Mix Rice, Taman Connaught, Cheras' },
+  { id: '15', query: 'Temptation, Taman Connaught, Cheras' },
+  { id: '16', query: "Stack'd Burger, UC Square, Taman Connaught, Cheras" },
+  { id: '17', query: "Charr'd Charcoal Chicken, UC Square, Taman Connaught, Cheras" },
+  { id: '18', query: 'Muchen Bakehouse, Taman Connaught, Cheras' },
+  { id: '19', query: 'Bingxue, Taman Connaught, Cheras' },
+  { id: '20', query: 'Max Bar, Taman Connaught, Cheras' },
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

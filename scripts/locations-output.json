@@ -1,6 +1,6 @@
 {
   "source": "OpenStreetMap Nominatim",
-  "fetchedAt": "2026-08-12T15:21:51.506Z",
+  "fetchedAt": "2026-08-12T15:43:16.104Z",
   "campus": {
     "lat": 3.0789392,
     "lon": 101.7326363
@@ -99,6 +99,84 @@
     {
       "id": "11",
       "query": "Nasi Kandar Nj Bistro, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "12",
+      "query": "Ming Yang Kopitiam, Jalan Menara Gading 1, Cheras",
+      "found": true,
+      "osmName": "Ming Yang Kopitiam, 25, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "restaurant",
+      "latitude": 3.080833,
+      "longitude": 101.7327418,
+      "distanceKm": 0.21,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "13",
+      "query": "Kungfu Ramen, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Kungfu Ramen, 15, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "restaurant",
+      "latitude": 3.0808318,
+      "longitude": 101.733053,
+      "distanceKm": 0.22,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "14",
+      "query": "Tai Chong Mix Rice, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "15",
+      "query": "Temptation, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Spicy Temptation Restaurant, 47, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "restaurant",
+      "latitude": 3.0808394,
+      "longitude": 101.7319382,
+      "distanceKm": 0.23,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "16",
+      "query": "Stack'd Burger, UC Square, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "17",
+      "query": "Charr'd Charcoal Chicken, UC Square, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "18",
+      "query": "Muchen Bakehouse, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "19",
+      "query": "Bingxue, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Bingxue, 5, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "cafe",
+      "latitude": 3.0808312,
+      "longitude": 101.7332312,
+      "distanceKm": 0.22,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "20",
+      "query": "Max Bar, Taman Connaught, Cheras",
       "found": false,
       "note": "not present in OpenStreetMap"
     }
