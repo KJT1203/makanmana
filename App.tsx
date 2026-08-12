@@ -20,20 +20,34 @@ const STORAGE_KEY = 'makanmana';
 
 type MenuItem = { name: string; price: number };
 
+// Several fields are nullable, and null means "not yet confirmed" rather than
+// "no". This matters most for halal: recording an unverified restaurant as
+// non-halal would actively mislead the users who depend on the field, and
+// recording it as halal would be worse. The interface therefore distinguishes
+// confirmed halal, confirmed not halal, and unconfirmed. The same reasoning
+// applies to ratings, prices, distances and hours: the application shows
+// nothing rather than a value it cannot support.
 type Restaurant = {
   id: string;
   name: string;
   cuisine: string;
-  halal: boolean;
-  priceLevel: 1 | 2 | 3;
-  distanceKm: number;
-  googleRating: number;
-  userRating: number;   // seed only — shown only as a fallback, never as a real score
-  address: string;
-  hours: string;
-  tags: string[];       // dietary tags, e.g. 'Vegetarian'
+  halal: boolean | null;
+  priceLevel: 1 | 2 | 3 | null;
+  distanceKm: number | null;
+  googleRating: number | null;
+  address: string | null;
+  hours: string | null;
+  // Coordinates from OpenStreetMap via scripts/fetch-locations.js. distanceKm
+  // is measured from the campus using them, not estimated.
+  latitude: number | null;
+  longitude: number | null;
+  tags: string[];       // dietary tags, e.g. 'Vegetarian'; empty = none confirmed
   menu: MenuItem[];
 };
+
+// UCSI University, resolved from OpenStreetMap. All distances are measured from
+// this point.
+const CAMPUS = { latitude: 3.0789392, longitude: 101.7326363 };
 
 type Review = {
   id: string;
@@ -67,56 +81,124 @@ type Account = { id: string; name: string; email: string; joinedAt: number };
 type Tab = 'explore' | 'saved' | 'chat' | 'profile';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
-// Real eateries in Taman Connaught, the small area beside UCSI (read off the map).
-// ⚠️ cuisine / halal / price / ratings / address / hours / tags are PLACEHOLDER
-//    values — VERIFY before the demo. Street names are right; unit numbers and
-//    opening hours are guesses. Google ratings will come from the Places API.
+// Real eateries in Taman Connaught, the small area beside UCSI.
+//
+// VERIFIED (from OpenStreetMap via scripts/fetch-locations.js): the address,
+// coordinates and distance of Gading Nasi Kandar, Craft Cafe and Restoran
+// Shawarma. Distances are measured from CAMPUS, not estimated.
+//
+// ⚠️ STILL TO VERIFY: cuisine, halal status, price level, opening hours, and the
+//    Google ratings — the Places API was not used, so those ratings must be
+//    read from Google Maps by hand (see design.md for why).
+// ⚠️ Two entries carry latitude/longitude of 0 as a placeholder: OpenStreetMap
+//    has no record of Tai Jie, and it matched a different McDonald's branch.
 
 const RESTAURANTS: Restaurant[] = [
   {
     id: '1', name: "McDonald's Taman Connaught DT", cuisine: 'Fast Food',
-    halal: true, priceLevel: 1, distanceKm: 0.4, googleRating: 4.1, userRating: 4.0,
-    address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
-    hours: '24 hours',
+    // McDonald's Malaysia holds national JAKIM halal certification, so this is
+    // a matter of public record rather than an assumption.
+    halal: true, priceLevel: 1,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
     tags: [],
-    // ⚠️ SAMPLE MENU — replace with verified items & prices.
-    menu: [
-      { name: 'McChicken', price: 9.55 },
-      { name: 'Big Mac', price: 12.10 },
-      { name: 'Fries (Medium)', price: 6.30 },
-      { name: 'McFlurry Oreo', price: 7.45 },
-    ],
+    menu: [],
   },
   {
     id: '2', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
-    halal: true, priceLevel: 1, distanceKm: 0.5, googleRating: 4.0, userRating: 4.2,
-    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
-    hours: '07:00 – 23:00',
-    tags: ['Vegetarian'],
+    halal: null, priceLevel: null,
+    distanceKm: 0.22, googleRating: null,
+    address: '41, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: null,
+    latitude: 3.08084, longitude: 101.73212,
+    tags: [],
     menu: [],
   },
   {
     id: '3', name: 'Tai Jie Taman Connaught', cuisine: 'Taiwanese',
-    halal: false, priceLevel: 2, distanceKm: 0.5, googleRating: 4.3, userRating: 4.4,
-    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
-    hours: '11:00 – 21:00',
-    tags: ['Vegetarian'],
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
     menu: [],
   },
   {
-    id: '4', name: 'Craft Cafe', cuisine: 'Café',
-    halal: false, priceLevel: 2, distanceKm: 0.4, googleRating: 4.4, userRating: 4.5,
-    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
-    hours: '10:00 – 22:00',
-    tags: ['Vegetarian', 'Vegan'],
+    id: '4', name: 'Craft Cafe', cuisine: 'Cafe',
+    halal: null, priceLevel: null,
+    distanceKm: 0.23, googleRating: null,
+    address: '7, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: null,
+    latitude: 3.08088, longitude: 101.73332,
+    tags: [],
     menu: [],
   },
   {
-    id: '5', name: 'Shawarma Restaurant', cuisine: 'Middle Eastern',
-    halal: true, priceLevel: 2, distanceKm: 0.6, googleRating: 4.2, userRating: 4.3,
-    address: 'Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, KL',
-    hours: '11:00 – 23:00',
-    tags: ['Vegetarian'],
+    id: '5', name: 'Restoran Shawarma', cuisine: 'Middle Eastern',
+    halal: null, priceLevel: null,
+    distanceKm: 0.19, googleRating: null,
+    address: '10, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: null,
+    latitude: 3.08060, longitude: 101.73318,
+    tags: [],
+    menu: [],
+  },
+  {
+    id: '6', name: 'Tealive (Shell Taman Connaught)', cuisine: 'Drinks',
+    // Tealive holds national JAKIM halal certification.
+    halal: true, priceLevel: 1,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
+    menu: [],
+  },
+  {
+    id: '7', name: 'Kashif Pakistani Food Restaurant', cuisine: 'Pakistani',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
+    menu: [],
+  },
+  {
+    id: '8', name: 'Chapathi Recipes', cuisine: 'North Indian',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
+    menu: [],
+  },
+  {
+    id: '9', name: 'Mix And Fuse Restaurant', cuisine: 'Japanese',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
+    menu: [],
+  },
+  {
+    id: '10', name: 'Astarry Cafe', cuisine: 'Cafe',
+    halal: null, priceLevel: null,
+    distanceKm: 0.19, googleRating: null,
+    address: '18, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: null,
+    latitude: 3.0806034, longitude: 101.7329389,
+    tags: [],
+    menu: [],
+  },
+  {
+    // A second Gading outlet, distinct from id 2.
+    id: '11', name: 'Nasi Kandar Nj Bistro', cuisine: 'Malaysian',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: null, hours: null,
+    latitude: null, longitude: null,
+    tags: [],
     menu: [],
   },
 ];
@@ -159,6 +241,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errPassword: 'Enter a password.', errDup: 'That email is already registered.',
     errWrong: 'Wrong email or password.', pleaseWait: 'Please wait…',
     errConfirmEmail: 'Account created. Check your email to confirm it, then log in.',
+    halal: 'Halal', notHalal: 'Not halal', halalUnconfirmed: 'Halal unconfirmed',
+    notConfirmed: 'Not confirmed',
     errOffline: 'Cannot reach the server. Check your connection.',
     myAccount: 'My account', editName: 'Edit name', saveName: 'Save',
     cancel: 'Cancel', yourName: 'Your name',
@@ -205,6 +289,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errPassword: 'Masukkan kata laluan.', errDup: 'E-mel itu telah didaftarkan.',
     errWrong: 'E-mel atau kata laluan salah.', pleaseWait: 'Sila tunggu…',
     errConfirmEmail: 'Akaun dicipta. Sila sahkan melalui e-mel anda, kemudian log masuk.',
+    halal: 'Halal', notHalal: 'Bukan halal', halalUnconfirmed: 'Halal belum disahkan',
+    notConfirmed: 'Belum disahkan',
     errOffline: 'Tidak dapat menghubungi pelayan. Sila semak sambungan anda.',
     myAccount: 'Akaun saya', editName: 'Edit nama', saveName: 'Simpan',
     cancel: 'Batal', yourName: 'Nama anda',
@@ -251,6 +337,8 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errPassword: '请输入密码。', errDup: '该电子邮箱已被注册。',
     errWrong: '电子邮箱或密码错误。', pleaseWait: '请稍候…',
     errConfirmEmail: '账户已创建。请查收邮件完成确认后再登录。',
+    halal: '清真', notHalal: '非清真', halalUnconfirmed: '清真状态未确认',
+    notConfirmed: '未确认',
     errOffline: '无法连接服务器。请检查网络连接。',
     myAccount: '我的账户', editName: '修改姓名', saveName: '保存',
     cancel: '取消', yourName: '你的姓名',
@@ -275,8 +363,10 @@ const STRINGS: Record<Lang, Record<string, string>> = {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function priceLabel(level: number) {
-  return '$'.repeat(level);
+// Returns '' for an unconfirmed price level, so callers can drop it from a
+// metadata line rather than printing a placeholder.
+function priceLabel(level: number | null) {
+  return level === null ? '' : '$'.repeat(level);
 }
 function ringgit(amount: number) {
   return 'RM ' + amount.toFixed(2);
@@ -308,17 +398,24 @@ function chatFind(query: string): { matches: Restaurant[]; understood: boolean }
   if (/cheap|budget|murah/.test(s)) price = 1;
   else if (/expensive|pricey|fancy|mahal/.test(s)) price = 3;
 
+  // Order matters: the first pattern to match wins, so put the more specific
+  // cuisines before the broader ones.
   const CUISINE_WORDS: [RegExp, string][] = [
-    [/caf|kafe|coffee|kopi/, 'Café'],
     [/taiwan/, 'Taiwanese'],
-    [/malay|nasi|kandar|mamak/, 'Malaysian'],
-    [/fast ?food|burger|fries|mcd/, 'Fast Food'],
+    [/pakistan/, 'Pakistani'],
+    [/north ?indian|chapathi|chapati|roti|naan|indian/, 'North Indian'],
+    [/japan|sushi|ramen|donburi/, 'Japanese'],
+    [/nasi|kandar|mamak|malay/, 'Malaysian'],
+    [/fast ?food|burger|fries|mcd|mcdonald/, 'Fast Food'],
     [/middle|shawarma|kebab|arab/, 'Middle Eastern'],
+    [/caf|kafe|coffee|kopi/, 'Cafe'],
+    [/drink|tea|teh|boba|bubble/, 'Drinks'],
   ];
   const cuisineHit = CUISINE_WORDS.find(([re]) => re.test(s));
   const cuisine = cuisineHit ? cuisineHit[1] : null;
 
   const understood = halal !== null || price !== null || cuisine !== null;
+  // As with the filter bar, a halal request only matches a confirmed yes.
   const matches = !understood
     ? []
     : RESTAURANTS.filter(
@@ -460,11 +557,15 @@ function RestaurantRow({
   onToggleFav: () => void;
   t: (k: string) => string;
 }) {
+  // Only confirmed values appear; unknown ones are dropped rather than shown
+  // as a blank or a placeholder.
   const meta = [
     restaurant.cuisine,
     priceLabel(restaurant.priceLevel),
-    `${restaurant.distanceKm} ${t('kmAway')}`,
-  ].join('  ·  ');
+    restaurant.distanceKm === null ? '' : `${restaurant.distanceKm} ${t('kmAway')}`,
+  ]
+    .filter(Boolean)
+    .join('  ·  ');
 
   return (
     <View style={s.row}>
@@ -491,19 +592,25 @@ function RestaurantRow({
           ) : (
             <Text>{t('noReviewsYet')}</Text>
           )}
-          <Text>{`  ·  Google ${restaurant.googleRating}`}</Text>
+          {restaurant.googleRating !== null && (
+            <Text>{`  ·  Google ${restaurant.googleRating}`}</Text>
+          )}
         </Text>
 
-        {(restaurant.halal || restaurant.tags.length > 0) && (
-          <View style={s.badgeRow}>
-            {restaurant.halal && <Text style={s.badgeHalal}>Halal</Text>}
-            {restaurant.tags.map((tag) => (
-              <Text key={tag} style={s.badgeNeutral}>
-                {t(tag.toLowerCase())}
-              </Text>
-            ))}
-          </View>
-        )}
+        <View style={s.badgeRow}>
+          {restaurant.halal === true && <Text style={s.badgeHalal}>{t('halal')}</Text>}
+          {restaurant.halal === false && (
+            <Text style={s.badgeNeutral}>{t('notHalal')}</Text>
+          )}
+          {restaurant.halal === null && (
+            <Text style={s.badgeUnknown}>{t('halalUnconfirmed')}</Text>
+          )}
+          {restaurant.tags.map((tag) => (
+            <Text key={tag} style={s.badgeNeutral}>
+              {t(tag.toLowerCase())}
+            </Text>
+          ))}
+        </View>
       </Pressable>
 
       <Pressable style={s.heartHit} onPress={onToggleFav} hitSlop={8}>
@@ -654,12 +761,23 @@ function DetailScreen({
         </Pressable>
         <Text style={s.screenTitle}>{restaurant.name}</Text>
         <Text style={s.headerSub}>
-          {restaurant.cuisine}  ·  {priceLabel(restaurant.priceLevel)}  ·{' '}
-          {restaurant.distanceKm} {t('kmAway')}
+          {[
+            restaurant.cuisine,
+            priceLabel(restaurant.priceLevel),
+            restaurant.distanceKm === null ? '' : `${restaurant.distanceKm} ${t('kmAway')}`,
+          ]
+            .filter(Boolean)
+            .join('  ·  ')}
         </Text>
 
         <View style={s.badgeRow}>
-          {restaurant.halal && <Text style={s.badgeHalal}>Halal</Text>}
+          {restaurant.halal === true && <Text style={s.badgeHalal}>{t('halal')}</Text>}
+          {restaurant.halal === false && (
+            <Text style={s.badgeNeutral}>{t('notHalal')}</Text>
+          )}
+          {restaurant.halal === null && (
+            <Text style={s.badgeUnknown}>{t('halalUnconfirmed')}</Text>
+          )}
           {restaurant.tags.map((tag) => (
             <Text key={tag} style={s.badgeNeutral}>
               {t(tag.toLowerCase())}
@@ -684,7 +802,9 @@ function DetailScreen({
           ) : (
             <Text style={s.ratingNone}>{t('noReviewsYet')}</Text>
           )}
-          <Text style={s.rowMeta}>{`Google ${restaurant.googleRating}`}</Text>
+          {restaurant.googleRating !== null && (
+            <Text style={s.rowMeta}>{`Google ${restaurant.googleRating}`}</Text>
+          )}
         </View>
 
         {/* Primary action, then secondary pair */}
@@ -698,15 +818,25 @@ function DetailScreen({
           />
         </View>
 
-        {/* Hours + address */}
+        {/* Hours and address. Each row states plainly when the value has not
+            been confirmed, rather than showing an empty field. */}
         <View style={s.infoTable}>
           <View style={s.infoRow}>
             <Text style={s.infoLabel}>{t('hours')}</Text>
-            <Text style={s.infoValue}>{restaurant.hours}</Text>
+            <Text style={restaurant.hours ? s.infoValue : s.infoValueMuted}>
+              {restaurant.hours ?? t('notConfirmed')}
+            </Text>
           </View>
           <View style={[s.infoRow, s.infoRowLast]}>
             <Text style={s.infoLabel}>{t('address')}</Text>
-            <Text style={[s.infoValue, s.infoValueWrap]}>{restaurant.address}</Text>
+            <Text
+              style={[
+                restaurant.address ? s.infoValue : s.infoValueMuted,
+                s.infoValueWrap,
+              ]}
+            >
+              {restaurant.address ?? t('notConfirmed')}
+            </Text>
           </View>
         </View>
 
@@ -959,8 +1089,9 @@ function ChatScreen({
                         {r.name}
                       </Text>
                       <Text style={s.rowMeta} numberOfLines={1}>
-                        {r.cuisine}  ·  {priceLabel(r.priceLevel)}
-                        {r.halal ? '  ·  Halal' : ''}
+                        {[r.cuisine, priceLabel(r.priceLevel), r.halal === true ? t('halal') : '']
+                          .filter(Boolean)
+                          .join('  ·  ')}
                       </Text>
                     </View>
                     <Text style={s.chevron}>›</Text>
@@ -1449,7 +1580,10 @@ export default function App() {
   // Keep only restaurants passing every active filter.
   const visible = RESTAURANTS.filter((r) => {
     if (!r.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
-    if (halalOnly && !r.halal) return false;
+    // Halal-only must require a confirmed yes. An unconfirmed restaurant is
+    // excluded, because a user who filters on halal needs certainty, not a
+    // maybe.
+    if (halalOnly && r.halal !== true) return false;
     if (cuisine !== 'All' && r.cuisine !== cuisine) return false;
     if (price !== 0 && r.priceLevel !== price) return false;
     if (diet !== 'All' && !r.tags.includes(diet)) return false;
@@ -1847,6 +1981,24 @@ const s = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.sm,
     overflow: 'hidden',
+  },
+  badgeUnknown: {
+    fontFamily,
+    fontSize: size.micro,
+    fontWeight: weight.semibold,
+    letterSpacing: 0.2,
+    color: '#8a6d1f',
+    backgroundColor: '#f7efd9',
+    paddingHorizontal: space.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  infoValueMuted: {
+    fontFamily,
+    fontSize: size.meta,
+    fontStyle: 'italic',
+    color: color.ink3,
   },
   badgeNeutral: {
     fontFamily,

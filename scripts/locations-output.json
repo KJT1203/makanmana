@@ -1,0 +1,106 @@
+{
+  "source": "OpenStreetMap Nominatim",
+  "fetchedAt": "2026-08-12T15:21:51.506Z",
+  "campus": {
+    "lat": 3.0789392,
+    "lon": 101.7326363
+  },
+  "results": [
+    {
+      "id": "1",
+      "query": "McDonald's Taman Connaught, Cheras, Kuala Lumpur",
+      "found": true,
+      "osmName": "McDonald's, Jalan Manis 6, Taman Segar, Cheras, Kuala Lumpur, 56100, Malaysia",
+      "osmType": "fast_food",
+      "latitude": 3.0901073,
+      "longitude": 101.7415909,
+      "distanceKm": 1.59,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "2",
+      "query": "Restoran Gading Nasi Kandar, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Gading Nasi Kandar, 41, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "restaurant",
+      "latitude": 3.0808385,
+      "longitude": 101.7321199,
+      "distanceKm": 0.22,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "3",
+      "query": "Tai Jie, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "4",
+      "query": "Craft Cafe, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Craft Cafe, 7, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "cafe",
+      "latitude": 3.0808783,
+      "longitude": 101.7333197,
+      "distanceKm": 0.23,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "5",
+      "query": "Shawarma Restaurant, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Restoran Shawarma, 10, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "restaurant",
+      "latitude": 3.0806002,
+      "longitude": 101.7331753,
+      "distanceKm": 0.19,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "6",
+      "query": "Tealive, Shell Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "7",
+      "query": "Kashif Pakistani Food Restaurant, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "8",
+      "query": "Chapathi Recipes, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "9",
+      "query": "Mix And Fuse Restaurant, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    },
+    {
+      "id": "10",
+      "query": "Astarry Cafe, Taman Connaught, Cheras",
+      "found": true,
+      "osmName": "Astarry Cafe, 18, Jalan Menara Gading 1, Cheras, Kuala Lumpur, 56000, Malaysia",
+      "osmType": "cafe",
+      "latitude": 3.0806034,
+      "longitude": 101.7329389,
+      "distanceKm": 0.19,
+      "suspicious": false,
+      "alternatives": []
+    },
+    {
+      "id": "11",
+      "query": "Nasi Kandar Nj Bistro, Taman Connaught, Cheras",
+      "found": false,
+      "note": "not present in OpenStreetMap"
+    }
+  ]
+}
