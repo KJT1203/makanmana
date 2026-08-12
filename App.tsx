@@ -293,6 +293,112 @@ const RESTAURANTS: Restaurant[] = [
     tags: [],
     menu: [],
   },
+  {
+    // Ratings, price band, address and opening time read from the Google Maps
+    // place panel for each of the entries below.
+    id: '21', name: 'Bep Viet Vietnamese Food (越南厨房)', cuisine: 'Vietnamese',
+    halal: null, priceLevel: 2,
+    distanceKm: null, googleRating: 4.8,
+    address: 'GF-3A, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '22', name: 'Hua Xiao Zhu Hotpot & BBQ (花小猪火锅烤肉店)', cuisine: 'Asian',
+    halal: null, priceLevel: 2,
+    distanceKm: null, googleRating: 4.5,
+    address: 'No. 8-G, UC Square, Dataran Connaught, Jalan Menara Gading 1, 56000 Kuala Lumpur',
+    hours: 'Opens 12:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '23', name: 'Restoran Fook Xing', cuisine: 'Chinese',
+    halal: null, priceLevel: 1,
+    distanceKm: null, googleRating: 3.8,
+    address: '37, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 09:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '24', name: 'Di Guo Jiang Hu (地锅江湖 康乐)', cuisine: 'Chinese',
+    halal: null, priceLevel: 3,
+    distanceKm: null, googleRating: 5.0,
+    address: 'UC Square, GF, 7, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    // The business advertises itself as halal in its own registered name, so
+    // this is the establishment's own declaration rather than an inference.
+    id: '25', name: 'Mee Tarik Shepherd Halal Restaurant (牧羊人餐厅)', cuisine: 'Chinese',
+    halal: true, priceLevel: 1,
+    distanceKm: null, googleRating: 4.4,
+    address: 'GF, 10, UC Square, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '26', name: 'Ma La Shi Dai (麻辣食代)', cuisine: 'Chinese',
+    halal: null, priceLevel: 2,
+    distanceKm: null, googleRating: 3.9,
+    address: '29, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    // Listed by the business as non-halal in its own registered name.
+    // Price band reported as RM 20-60, which straddles two levels; recorded as
+    // the lower of the two.
+    id: '27', name: 'Krua Thai Moo-ka-ta Restaurant (Cheras)', cuisine: 'Thai',
+    halal: false, priceLevel: 2,
+    distanceKm: null, googleRating: 4.6,
+    address: '27, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:30',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '28', name: 'Yihetang (@ Taman Connaught)', cuisine: 'Drinks',
+    halal: null, priceLevel: 1,
+    distanceKm: null, googleRating: 4.4,
+    address: 'GF-12, Dataran Connaught, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 10:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '29', name: 'Luckin Kitchen (外婆家中餐馆 康乐店)', cuisine: 'Chinese',
+    halal: null, priceLevel: 1,
+    distanceKm: null, googleRating: 4.2,
+    address: '23, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 11:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '30', name: 'Crown Luosifen (皇冠螺蛳粉 康乐分店)', cuisine: 'Chinese',
+    halal: null, priceLevel: 1,
+    distanceKm: null, googleRating: 3.6,
+    address: '9, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 10:30',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '31', name: 'Juicy Fresh Juice Bar (UCSI Taman Connaught)', cuisine: 'Drinks',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: 4.7,
+    address: '49, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
+    hours: 'Opens 10:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
 ];
 
 // Filter options derived from the data, so new restaurants need no extra wiring.
