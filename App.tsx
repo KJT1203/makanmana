@@ -438,6 +438,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errName: 'Enter your name.', errEmail: 'Enter your email.',
     errPassword: 'Enter a password.', errDup: 'That email is already registered.',
     errWrong: 'Wrong email or password.', pleaseWait: 'Please wait…',
+    errRating: 'Choose a star rating before posting.',
     errConfirmEmail: 'Account created. Check your email to confirm it, then log in.',
     halal: 'Halal', notHalal: 'Not halal', halalUnconfirmed: 'Halal unconfirmed',
     notConfirmed: 'Not confirmed',
@@ -486,6 +487,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errName: 'Masukkan nama anda.', errEmail: 'Masukkan e-mel anda.',
     errPassword: 'Masukkan kata laluan.', errDup: 'E-mel itu telah didaftarkan.',
     errWrong: 'E-mel atau kata laluan salah.', pleaseWait: 'Sila tunggu…',
+    errRating: 'Pilih penarafan bintang sebelum menghantar.',
     errConfirmEmail: 'Akaun dicipta. Sila sahkan melalui e-mel anda, kemudian log masuk.',
     halal: 'Halal', notHalal: 'Bukan halal', halalUnconfirmed: 'Halal belum disahkan',
     notConfirmed: 'Belum disahkan',
@@ -534,6 +536,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errName: '请输入姓名。', errEmail: '请输入电子邮箱。',
     errPassword: '请输入密码。', errDup: '该电子邮箱已被注册。',
     errWrong: '电子邮箱或密码错误。', pleaseWait: '请稍候…',
+    errRating: '发布前请先选择星级评分。',
     errConfirmEmail: '账户已创建。请查收邮件完成确认后再登录。',
     halal: '清真', notHalal: '非清真', halalUnconfirmed: '清真状态未确认',
     notConfirmed: '未确认',
@@ -932,9 +935,12 @@ function DetailScreen({
 }) {
   const [myRating, setMyRating] = useState(0);
   const [myText, setMyText] = useState('');
+  const [reviewErr, setReviewErr] = useState('');
 
   function submitReview() {
-    if (myRating === 0) return; // rating required, text optional
+    // rating required, text optional — say so rather than discarding silently
+    if (myRating === 0) return setReviewErr(t('errRating'));
+    setReviewErr('');
     onAddReview(myRating, myText.trim());
     setMyRating(0);
     setMyText('');
@@ -1063,7 +1069,7 @@ function DetailScreen({
           <Text style={s.fieldLabel}>{t('yourRating')}</Text>
           <View style={s.starPickRow}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setMyRating(n)} hitSlop={4}>
+              <Pressable key={n} onPress={() => { setMyRating(n); setReviewErr(''); }} hitSlop={4}>
                 <Text style={[s.starPick, n <= myRating && s.starPickOn]}>
                   {n <= myRating ? '★' : '☆'}
                 </Text>
@@ -1078,6 +1084,7 @@ function DetailScreen({
             onChangeText={setMyText}
             multiline
           />
+          {reviewErr !== '' && <Text style={s.error}>{reviewErr}</Text>}
           <PrimaryButton label={t('postReview')} onPress={submitReview} />
         </View>
 
@@ -1705,15 +1712,23 @@ export default function App() {
     refreshBookings();
   }
 
-  // Supabase reports its own errors; they are clearer than anything generic we
-  // could substitute (for example, that a password is too short).
+  // Supabase reports its own errors, and for the unusual ones (a password that is
+  // too short, a malformed address) its wording is clearer than anything generic
+  // we could substitute. But it only speaks English, so the two errors users
+  // actually hit are mapped to the dictionary and the rest fall through.
+  function authError(message: string) {
+    if (/already registered/i.test(message)) return t('errDup');
+    if (/invalid login credentials/i.test(message)) return t('errWrong');
+    return message;
+  }
+
   async function handleSignup(name: string, email: string, password: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } }, // the trigger reads this to create the profile
     });
-    if (error) return error.message;
+    if (error) return authError(error.message);
     // If the project requires email confirmation, sign-up succeeds but returns
     // no session. Say so, rather than appearing to do nothing.
     if (!data.session) return t('errConfirmEmail');
@@ -1722,7 +1737,7 @@ export default function App() {
 
   async function handleLogin(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    if (error) return authError(error.message);
     return null;
   }
 
