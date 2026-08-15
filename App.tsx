@@ -79,11 +79,12 @@ const RESTAURANTS: Restaurant[] = [
     address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
     hours: '24 hours',
     tags: [],
-    // Verified against the McDonald's Malaysia app, 15 Aug 2026: food first,
-    // then drinks, each cheapest first — a single price sort would open the
-    // menu on bottled water. À la carte prices only; meal prices, the
-    // Spicy/Regular/Mixed variants (identically priced, so collapsed to one
-    // row here) and the items flagged unavailable live in mcdonalds-menu.md.
+    // Verified against the McDonald's Malaysia app, 15 Aug 2026: mains, then
+    // desserts, then drinks, each cheapest first — a single price sort across
+    // all of it would open the menu on bottled water. À la carte prices only;
+    // meal prices, the Spicy/Regular/Mixed variants (identically priced, so
+    // collapsed to one row here) and the items excluded as unavailable or
+    // time-limited all live in mcdonalds-menu.md.
     menu: [
       { name: 'Chicken Burger', price: 7.12 },
       { name: 'McChicken', price: 7.36 },
@@ -130,6 +131,16 @@ const RESTAURANTS: Restaurant[] = [
       { name: 'Family Combo A', price: 37.64 },
       { name: 'Family Combo B', price: 47.08 },
       { name: '10pcs Ayam Goreng McD', price: 57.36 },
+
+      // Desserts
+      { name: 'Gemilang Cone', price: 2.92 },
+      { name: 'Choco Dip', price: 3.40 },
+      { name: 'Gemilang Cone ChocoTop', price: 3.87 },
+      { name: 'Apple Pie', price: 4.43 },
+      { name: 'Chocolate Sundae', price: 5.38 },
+      { name: 'Strawberry Sundae', price: 5.38 },
+      { name: 'Oreo McFlurry', price: 6.32 },
+      { name: 'Cendol Gula Melaka Deluxe Sundae', price: 8.96 },
 
       // Drinks
       { name: 'Bottled Water', price: 3.73 },

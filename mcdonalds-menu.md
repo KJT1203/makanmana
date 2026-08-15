@@ -113,6 +113,25 @@ price does not wrap on a phone.
 The Ayam Combo F name is truncated in the app's own UI, so the third component
 is unknown.
 
+## Desserts
+
+| Item | Price |
+| --- | ---: |
+| Gemilang Cone | 2.92 |
+| Choco Dip | 3.40 |
+| Gemilang Cone ChocoTop | 3.87 |
+| Apple Pie | 4.43 |
+| Chocolate Sundae | 5.38 |
+| Strawberry Sundae | 5.38 |
+| Oreo McFlurry | 6.32 |
+| Cendol Gula Melaka Deluxe Sundae | 8.96 |
+| ⏳ Buy 1 Free 1 Sundae Cone (1 day only) | 2.45 |
+
+⏳ The Buy 1 Free 1 cone is a one-day promotion. `App.tsx` ships its menu inside
+the JavaScript bundle, so a dated offer baked in there would be wrong by the
+next day and could only be corrected by a new build. It stays documented here
+and out of the app.
+
 ## McCafe drinks
 
 | Item | Price |
@@ -154,17 +173,18 @@ size selector on these rows.
 
 ## Ordering in App.tsx
 
-At 70 items a single price sort would open the menu on Bottled Water at
-RM 3.73, so the array runs **food cheapest-first, then drinks cheapest-first**.
-That is a stopgap: a `category` field on `MenuItem` with section headers in
-`DetailScreen` is the real fix once the list is this long.
+At 78 items a single price sort would open the menu on Bottled Water at
+RM 3.73, so the array runs **mains, then desserts, then drinks**, each
+cheapest-first. That is a stopgap, and it is now carrying three unlabelled
+blocks: a `category` field on `MenuItem` with section headers in `DetailScreen`
+is the real fix, and it is overdue at this length.
 
 ## Still missing
 
-Not covered by any screenshot, so still absent from the app: **fries, desserts
-(McFlurry, sundae, pie), breakfast, and standalone sides** beyond what appears
-in the combos. Of the three original placeholder entries, McChicken is now
-verified at RM 7.36; Fries and McFlurry remain unverified and stay out.
+Not covered by any screenshot, so still absent from the app: **fries,
+breakfast, and standalone sides** beyond what appears in the combos. Of the
+three original placeholder entries, McChicken is verified at RM 7.36 and
+McFlurry at RM 6.32 (Oreo); only Fries remains unverified.
 
 ## Other restaurants
 
