@@ -79,12 +79,28 @@ const RESTAURANTS: Restaurant[] = [
     address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
     hours: '24 hours',
     tags: [],
-    // ⚠️ SAMPLE MENU — replace with verified items & prices.
+    // Verified against the McDonald's Malaysia app, 15 Aug 2026. À la carte
+    // prices; meal prices are recorded in mcdonalds-menu.md until MenuItem
+    // grows a field for them.
     menu: [
-      { name: 'McChicken', price: 9.55 },
-      { name: 'Big Mac', price: 12.10 },
-      { name: 'Fries (Medium)', price: 6.30 },
-      { name: 'McFlurry Oreo', price: 7.45 },
+      { name: 'Beef Burger', price: 7.69 },
+      { name: 'Spicy Beef Burger', price: 7.83 },
+      { name: 'Cheeseburger', price: 8.63 },
+      { name: 'Spicy Beef Burger with Egg', price: 8.77 },
+      { name: 'Filet-O-Fish', price: 9.43 },
+      { name: '6pcs Chicken McNuggets', price: 9.43 },
+      { name: 'Double Cheeseburger', price: 11.42 },
+      { name: 'Spicy Double Cheese', price: 12.31 },
+      { name: '9pcs Chicken McNuggets', price: 13.49 },
+      { name: 'Big Mac', price: 13.73 },
+      { name: 'Creamy Mushroom Double Beef Burger', price: 13.77 },
+      { name: 'Quarter Pounder with Cheese', price: 14.15 },
+      { name: 'Double Filet-O-Fish', price: 14.48 },
+      { name: 'Ayam Combo E (Ayam Goreng + 6pcs Nuggets)', price: 15.94 },
+      { name: 'Triple Cheeseburger', price: 16.13 },
+      { name: 'Spicy Triple Cheese', price: 17.03 },
+      { name: 'Double Quarter Pounder with Cheese', price: 18.87 },
+      { name: '20pcs Chicken McNuggets', price: 25.57 },
     ],
   },
   {
