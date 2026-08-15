@@ -79,10 +79,11 @@ const RESTAURANTS: Restaurant[] = [
     address: 'Jalan Cerdas, Taman Connaught, 56000 Cheras, KL',
     hours: '24 hours',
     tags: [],
-    // Verified against the McDonald's Malaysia app, 15 Aug 2026, cheapest
-    // first. À la carte prices only — meal prices, the Spicy/Regular/Mixed
-    // variants (identically priced, so collapsed to one row here) and the
-    // items flagged unavailable all live in mcdonalds-menu.md.
+    // Verified against the McDonald's Malaysia app, 15 Aug 2026: food first,
+    // then drinks, each cheapest first — a single price sort would open the
+    // menu on bottled water. À la carte prices only; meal prices, the
+    // Spicy/Regular/Mixed variants (identically priced, so collapsed to one
+    // row here) and the items flagged unavailable live in mcdonalds-menu.md.
     menu: [
       { name: 'Chicken Burger', price: 7.12 },
       { name: 'McChicken', price: 7.36 },
@@ -129,6 +130,33 @@ const RESTAURANTS: Restaurant[] = [
       { name: 'Family Combo A', price: 37.64 },
       { name: 'Family Combo B', price: 47.08 },
       { name: '10pcs Ayam Goreng McD', price: 57.36 },
+
+      // Drinks
+      { name: 'Bottled Water', price: 3.73 },
+      { name: 'Iced Lemon Tea', price: 4.15 },
+      { name: 'Hot Teh Tarik', price: 4.48 },
+      { name: 'Tea', price: 4.48 },
+      { name: '100 Plus', price: 4.81 },
+      { name: 'Coca-Cola', price: 4.81 },
+      { name: 'Coca-Cola Zero Sugar', price: 4.81 },
+      { name: 'Sprite', price: 4.81 },
+      { name: 'Espresso', price: 4.81 },
+      { name: 'Hot Milo', price: 5.61 },
+      { name: 'Iced Mango Peach', price: 5.61 },
+      { name: 'Iced Milo', price: 5.75 },
+      { name: 'Iced Americano', price: 5.75 },
+      { name: 'Americano', price: 5.94 },
+      { name: 'Orange Juice', price: 6.04 },
+      { name: 'Iced Mango Oolong Tea', price: 6.51 },
+      { name: 'Iced White Peach Oolong Tea', price: 6.51 },
+      { name: 'Iced Latte', price: 6.70 },
+      { name: 'Teh Ais', price: 6.79 },
+      { name: 'Latte', price: 6.79 },
+      { name: 'Cappuccino', price: 6.79 },
+      { name: 'Iced Chocolate', price: 9.34 },
+      { name: 'Hot Chocolate', price: 9.43 },
+      { name: 'Mocha', price: 9.43 },
+      { name: 'Iced Mocha', price: 9.43 },
     ],
   },
   {

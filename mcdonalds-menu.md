@@ -113,13 +113,58 @@ price does not wrap on a phone.
 The Ayam Combo F name is truncated in the app's own UI, so the third component
 is unknown.
 
+## McCafe drinks
+
+| Item | Price |
+| --- | ---: |
+| Espresso | 4.81 |
+| Iced Mango Peach | 5.61 |
+| Iced Americano | 5.75 |
+| Americano | 5.94 |
+| Iced Mango Oolong Tea | 6.51 |
+| Iced White Peach Oolong Tea | 6.51 |
+| Iced Latte | 6.70 |
+| Latte | 6.79 |
+| Cappuccino | 6.79 |
+| Iced Chocolate | 9.34 |
+| Hot Chocolate | 9.43 |
+| Mocha | 9.43 |
+| Iced Mocha | 9.43 |
+
+## Other drinks
+
+| Item | Price |
+| --- | ---: |
+| Bottled Water | 3.73 |
+| Iced Lemon Tea | 4.15 |
+| Hot Teh Tarik | 4.48 |
+| Tea | 4.48 |
+| 100 Plus | 4.81 |
+| Coca-Cola | 4.81 |
+| Coca-Cola Zero Sugar | 4.81 |
+| Sprite | 4.81 |
+| Hot Milo | 5.61 |
+| Iced Milo | 5.75 |
+| Orange Juice | 6.04 |
+| ⚠️ Apple Juice | 6.04 |
+| Teh Ais | 6.79 |
+
+Drink prices are for the single listed size; the app's screenshots showed no
+size selector on these rows.
+
+## Ordering in App.tsx
+
+At 70 items a single price sort would open the menu on Bottled Water at
+RM 3.73, so the array runs **food cheapest-first, then drinks cheapest-first**.
+That is a stopgap: a `category` field on `MenuItem` with section headers in
+`DetailScreen` is the real fix once the list is this long.
+
 ## Still missing
 
-Not covered by any screenshot, so still absent from the app: **fries, drinks,
-desserts (McFlurry, sundae, pie), breakfast, and sides** beyond what appears in
-the combos. The original placeholder entries for McChicken, Fries and McFlurry
-were dropped — McChicken has since been verified at RM 7.36, the other two have
-not.
+Not covered by any screenshot, so still absent from the app: **fries, desserts
+(McFlurry, sundae, pie), breakfast, and standalone sides** beyond what appears
+in the combos. Of the three original placeholder entries, McChicken is now
+verified at RM 7.36; Fries and McFlurry remain unverified and stay out.
 
 ## Other restaurants
 
