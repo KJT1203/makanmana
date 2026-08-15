@@ -103,7 +103,28 @@ const RESTAURANTS: Restaurant[] = [
     address: null, hours: null,
     latitude: null, longitude: null,
     tags: [],
-    menu: [],
+    // Prices read from the McDonald's Malaysia ordering app on 15 August 2026.
+    // These are the app's a la carte prices, not meal prices and not counter
+    // prices — the three can differ. A selection across the range is held
+    // rather than the whole menu, which runs to several hundred items.
+    menu: [
+      { name: 'Chicken Burger', price: 7.12 },
+      { name: 'McChicken', price: 7.36 },
+      { name: 'Beef Burger', price: 7.69 },
+      { name: 'Spicy Beef Burger', price: 7.83 },
+      { name: 'Cheeseburger', price: 8.63 },
+      { name: '1pc Ayam Goreng McD (Spicy) McValue Meal', price: 9.39 },
+      { name: 'Filet-O-Fish', price: 9.43 },
+      { name: '6pcs Chicken McNuggets', price: 9.43 },
+      { name: '3pcs Ayam Tenders McD Spicy', price: 11.32 },
+      { name: 'Big Mac', price: 13.73 },
+      { name: '2pcs Ayam Goreng McD Spicy', price: 13.82 },
+      { name: 'Spicy Chicken McDeluxe', price: 13.87 },
+      { name: 'Bottled Water', price: 3.73 },
+      { name: 'Iced Lemon Tea', price: 4.15 },
+      { name: 'Hot Teh Tarik', price: 4.48 },
+      { name: 'Iced Milo', price: 5.75 },
+    ],
   },
   {
     id: '2', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
