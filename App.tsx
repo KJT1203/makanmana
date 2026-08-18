@@ -424,13 +424,11 @@ const RESTAURANTS: Restaurant[] = [
 
 // Filter options derived from the data, so new restaurants need no extra wiring.
 const CUISINES = ['All', ...Array.from(new Set(RESTAURANTS.map((r) => r.cuisine)))];
-const PRICE_OPTIONS = [0, 1, 2, 3]; // 0 = any
 const DIET_TAGS = Array.from(new Set(RESTAURANTS.flatMap((r) => r.tags)));
+const PRICE_OPTIONS = [0, 1, 2, 3]; // 0 = any
 
 // ─── LANGUAGES ────────────────────────────────────────────────────────────────
 // English + Bahasa Melayu + Chinese. A plain dictionary keyed by a short id.
-// Restaurant names and cuisines stay untranslated — they are data, not chrome.
-
 type Lang = 'en' | 'ms' | 'zh';
 
 const STRINGS: Record<Lang, Record<string, string>> = {
@@ -509,6 +507,18 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errPassword: 'Masukkan kata laluan.', errDup: 'E-mel itu telah didaftarkan.',
     errWrong: 'E-mel atau kata laluan salah.', pleaseWait: 'Sila tunggu…',
     errRating: 'Pilih penarafan bintang sebelum menghantar.',
+    // Cuisine names are interface vocabulary rather than proper nouns, so unlike
+    // restaurant names they are translated. They are keyed by the English name
+    // held in the data: a cuisine with no entry here falls through t() to that
+    // English name, so adding a restaurant with a new cuisine still shows a
+    // usable chip rather than a blank or a raw key.
+    'Fast Food': 'Makanan Segera', Malaysian: 'Malaysia', Taiwanese: 'Taiwan',
+    Cafe: 'Kafe', 'Middle Eastern': 'Timur Tengah', Drinks: 'Minuman',
+    Pakistani: 'Pakistan', 'North Indian': 'India Utara', Japanese: 'Jepun',
+    Kopitiam: 'Kopitiam', Chinese: 'Cina', Grill: 'Panggang', Bakery: 'Bakeri',
+    Dessert: 'Pencuci Mulut', Bar: 'Bar', Vietnamese: 'Vietnam', Asian: 'Asia',
+    Thai: 'Thai',
+
     errConfirmEmail: 'Akaun dicipta. Sila sahkan melalui e-mel anda, kemudian log masuk.',
     halal: 'Halal', notHalal: 'Bukan halal', halalUnconfirmed: 'Halal belum disahkan',
     notConfirmed: 'Belum disahkan',
@@ -558,6 +568,14 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     errPassword: '请输入密码。', errDup: '该电子邮箱已被注册。',
     errWrong: '电子邮箱或密码错误。', pleaseWait: '请稍候…',
     errRating: '发布前请先选择星级评分。',
+    // See the note in the Malay block: cuisines are keyed by their English name.
+    'Fast Food': '快餐', Malaysian: '马来西亚菜', Taiwanese: '台湾菜',
+    Cafe: '咖啡馆', 'Middle Eastern': '中东菜', Drinks: '饮品',
+    Pakistani: '巴基斯坦菜', 'North Indian': '北印度菜', Japanese: '日本料理',
+    Kopitiam: '咖啡店', Chinese: '中餐', Grill: '烧烤', Bakery: '烘焙',
+    Dessert: '甜点', Bar: '酒吧', Vietnamese: '越南菜', Asian: '亚洲菜',
+    Thai: '泰国菜',
+
     errConfirmEmail: '账户已创建。请查收邮件完成确认后再登录。',
     halal: '清真', notHalal: '非清真', halalUnconfirmed: '清真状态未确认',
     notConfirmed: '未确认',
@@ -782,7 +800,7 @@ function RestaurantRow({
   // Only confirmed values appear; unknown ones are dropped rather than shown
   // as a blank or a placeholder.
   const meta = [
-    restaurant.cuisine,
+    t(restaurant.cuisine),
     priceLabel(restaurant.priceLevel),
     restaurant.distanceKm === null ? '' : `${restaurant.distanceKm} ${t('kmAway')}`,
   ]
@@ -987,7 +1005,7 @@ function DetailScreen({
         <Text style={s.screenTitle}>{restaurant.name}</Text>
         <Text style={s.headerSub}>
           {[
-            restaurant.cuisine,
+            t(restaurant.cuisine),
             priceLabel(restaurant.priceLevel),
             restaurant.distanceKm === null ? '' : `${restaurant.distanceKm} ${t('kmAway')}`,
           ]
@@ -1315,7 +1333,7 @@ function ChatScreen({
                         {r.name}
                       </Text>
                       <Text style={s.rowMeta} numberOfLines={1}>
-                        {[r.cuisine, priceLabel(r.priceLevel), r.halal === true ? t('halal') : '']
+                        {[t(r.cuisine), priceLabel(r.priceLevel), r.halal === true ? t('halal') : '']
                           .filter(Boolean)
                           .join('  ·  ')}
                       </Text>
@@ -1890,7 +1908,7 @@ export default function App() {
               {CUISINES.map((c) => (
                 <Chip
                   key={c}
-                  label={c === 'All' ? t('all') : c}
+                  label={c === 'All' ? t('all') : t(c)}
                   active={cuisine === c}
                   onPress={() => setCuisine(c)}
                 />
