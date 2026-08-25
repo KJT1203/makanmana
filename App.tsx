@@ -553,7 +553,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     Pakistani: 'Pakistan', 'North Indian': 'India Utara', Japanese: 'Jepun',
     Kopitiam: 'Kopitiam', Chinese: 'Cina', Grill: 'Panggang', Bakery: 'Bakeri',
     Dessert: 'Pencuci Mulut', Bar: 'Bar', Vietnamese: 'Vietnam', Asian: 'Asia',
-    Thai: 'Thai',
+    Thai: 'Thai', Cafeteria: 'Kafeteria',
 
     errConfirmEmail: 'Akaun dicipta. Sila sahkan melalui e-mel anda, kemudian log masuk.',
     halal: 'Halal', notHalal: 'Bukan halal', halalUnconfirmed: 'Halal belum disahkan',
@@ -611,7 +611,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     Pakistani: '巴基斯坦菜', 'North Indian': '北印度菜', Japanese: '日本料理',
     Kopitiam: '咖啡店', Chinese: '中餐', Grill: '烧烤', Bakery: '烘焙',
     Dessert: '甜点', Bar: '酒吧', Vietnamese: '越南菜', Asian: '亚洲菜',
-    Thai: '泰国菜',
+    Thai: '泰国菜', Cafeteria: '食堂',
 
     errConfirmEmail: '账户已创建。请查收邮件完成确认后再登录。',
     halal: '清真', notHalal: '非清真', halalUnconfirmed: '清真状态未确认',
