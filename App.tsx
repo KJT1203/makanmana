@@ -205,7 +205,7 @@ const RESTAURANTS: Restaurant[] = [
     distanceKm: null, googleRating: null,
     address: '5, Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, Kuala Lumpur', hours: '11:00 - 23:00',
     latitude: null, longitude: null,
-    tags: [],
+    tags: ['Vegetarian'],
     menu: [],
   },
   {
@@ -453,7 +453,7 @@ const RESTAURANTS: Restaurant[] = [
     address: '1, Jalan UCSI, Taman Connaught, 56000 Kuala Lumpur',
     hours: '08:00 - 22:00',
     latitude: null, longitude: null,
-    tags: [], menu: [],
+    tags: ['Vegetarian'], menu: [],
   },
 ];
 
