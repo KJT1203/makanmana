@@ -480,6 +480,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     confirmBooking: 'Confirm booking', bookingConfirmed: 'Booking confirmed',
     bookingNote: 'Prototype booking — no table is actually reserved.',
     done: 'Done', myBookings: 'Bookings', noBookings: 'No bookings yet.',
+    noSlots: 'This restaurant is not open at any of our booking times.',
     vegetarian: 'Vegetarian', vegan: 'Vegan',
   },
   ms: {
@@ -541,6 +542,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     confirmBooking: 'Sahkan tempahan', bookingConfirmed: 'Tempahan disahkan',
     bookingNote: 'Tempahan prototaip — tiada meja sebenar ditempah.',
     done: 'Selesai', myBookings: 'Tempahan', noBookings: 'Tiada tempahan lagi.',
+    noSlots: 'Restoran ini tidak dibuka pada mana-mana masa tempahan kami.',
     vegetarian: 'Vegetarian', vegan: 'Vegan',
   },
   zh: {
@@ -598,6 +600,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     confirmBooking: '确认预订', bookingConfirmed: '预订已确认',
     bookingNote: '原型预订 — 并未真正预留餐桌。',
     done: '完成', myBookings: '预订', noBookings: '还没有预订。',
+    noSlots: '本餐厅在我们的所有预订时段均未营业。',
     vegetarian: '素食', vegan: '纯素',
   },
 };
@@ -1160,6 +1163,58 @@ function DetailScreen({
 
 const TIME_SLOTS = ['11:30', '12:30', '13:30', '18:30', '19:30', '20:30'];
 
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
+// Which booking slots fall inside a restaurant's opening hours.
+//
+// The hours field holds one of four things, and each has to mean something
+// different here rather than being treated as "unknown":
+//   'Open 24 hours'   every slot is bookable
+//   '11:00 - 21:00'   slots inside the range, less the closing buffer below
+//   '19:00 - 03:00'   a range that crosses midnight
+//   'Opens 10:00'     only the opening time was published; anything at or
+//                     after it is offered, since inventing a closing time
+//                     would be the same guess the dataset refuses to make
+//   null              not confirmed, so every slot is offered rather than
+//                     silently hiding options on no evidence
+//
+// Where a closing time is known, the last booking is an hour before it. A table
+// booked half an hour before closing is not a meal, and offering it would make
+// the confirmation a promise the restaurant would not honour.
+const CLOSING_BUFFER_MINS = 60;
+
+function slotsWithinHours(hours: string | null): string[] {
+  if (!hours) return TIME_SLOTS;
+  if (/24 hours/i.test(hours)) return TIME_SLOTS;
+
+  const range = hours.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+  if (range) {
+    const open = toMinutes(range[1]);
+    // A closing time at or before the opening time means the range runs past
+    // midnight, so it is carried into the next day before anything is compared.
+    let close = toMinutes(range[2]);
+    if (close <= open) close += 24 * 60;
+    const lastBooking = close - CLOSING_BUFFER_MINS;
+
+    return TIME_SLOTS.filter((slot) => {
+      let at = toMinutes(slot);
+      if (at < open) at += 24 * 60;
+      return at >= open && at <= lastBooking;
+    });
+  }
+
+  const opensOnly = hours.match(/Opens\s+(\d{1,2}:\d{2})/i);
+  if (opensOnly) {
+    const open = toMinutes(opensOnly[1]);
+    return TIME_SLOTS.filter((slot) => toMinutes(slot) >= open);
+  }
+
+  return TIME_SLOTS;
+}
+
 function BookingScreen({
   restaurant,
   t,
@@ -1171,8 +1226,12 @@ function BookingScreen({
   onBack: () => void;
   onBook: (day: string, time: string, partySize: number) => void;
 }) {
+  // Only offer times the restaurant is actually open. The default has to come
+  // from that list rather than a fixed slot, or a booking could be confirmed
+  // for a time the restaurant is shut.
+  const openSlots = slotsWithinHours(restaurant.hours);
   const [day, setDay] = useState('today');
-  const [time, setTime] = useState('19:30');
+  const [time, setTime] = useState(openSlots[0] ?? '');
   const [partySize, setPartySize] = useState(2);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -1226,16 +1285,21 @@ function BookingScreen({
             />
 
             <Text style={[s.sectionTitle, s.sectionGap]}>{t('bookTime')}</Text>
-            <View style={s.chipWrap}>
-              {TIME_SLOTS.map((slot) => (
-                <Chip
-                  key={slot}
-                  label={slot}
-                  active={time === slot}
-                  onPress={() => setTime(slot)}
-                />
-              ))}
-            </View>
+            {restaurant.hours && <Text style={s.hint}>{restaurant.hours}</Text>}
+            {openSlots.length === 0 ? (
+              <Text style={s.emptyText}>{t('noSlots')}</Text>
+            ) : (
+              <View style={s.chipWrap}>
+                {openSlots.map((slot) => (
+                  <Chip
+                    key={slot}
+                    label={slot}
+                    active={time === slot}
+                    onPress={() => setTime(slot)}
+                  />
+                ))}
+              </View>
+            )}
 
             <Text style={[s.sectionTitle, s.sectionGap]}>{t('partySize')}</Text>
             <View style={s.stepperRow}>
@@ -1256,9 +1320,11 @@ function BookingScreen({
               </Pressable>
             </View>
 
-            <View style={s.sectionGap}>
-              <PrimaryButton label={t('confirmBooking')} onPress={confirm} />
-            </View>
+            {openSlots.length > 0 && (
+              <View style={s.sectionGap}>
+                <PrimaryButton label={t('confirmBooking')} onPress={confirm} />
+              </View>
+            )}
           </>
         )}
       </ScrollView>
