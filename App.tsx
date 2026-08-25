@@ -421,6 +421,27 @@ const RESTAURANTS: Restaurant[] = [
     latitude: null, longitude: null,
     tags: [], menu: [],
   },
+  // The two entries below are on the campus itself rather than in the
+  // surrounding area. Uncle Lim's is inside the South Wing, so its distance
+  // from the campus is nil rather than merely small.
+  {
+    id: '32', name: "Uncle Lim's Delights Cafeteria", cuisine: 'Cafeteria',
+    halal: null, priceLevel: null,
+    distanceKm: 0, googleRating: null,
+    address: 'Block G, Lot 1, UCSI University (South Wing), Jalan Menara Gading',
+    hours: '08:00 - 23:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
+  {
+    id: '33', name: 'Subway UCSI', cuisine: 'Fast Food',
+    halal: null, priceLevel: null,
+    distanceKm: null, googleRating: null,
+    address: '1, Jalan UCSI, Taman Connaught, 56000 Kuala Lumpur',
+    hours: '08:00 - 22:00',
+    latitude: null, longitude: null,
+    tags: [], menu: [],
+  },
 ];
 
 // Filter options derived from the data, so new restaurants need no extra wiring.
