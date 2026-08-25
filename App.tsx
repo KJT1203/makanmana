@@ -93,6 +93,19 @@ type Tab = 'explore' | 'saved' | 'chat' | 'profile';
 // ⚠️ Two entries carry latitude/longitude of 0 as a placeholder: OpenStreetMap
 //    has no record of Tai Jie, and it matched a different McDonald's branch.
 
+// Halal status is established one of three ways, and the distinction matters to
+// the people who depend on the field:
+//   - national JAKIM certification, which is a matter of public record
+//     (McDonald's, Tealive, Subway)
+//   - the business's own registered name (Mee Tarik Shepherd Halal Restaurant,
+//     and Krua Thai Moo-ka-ta, which states that it is not halal)
+//   - direct observation of the establishment: Muslim-owned kitchens serving
+//     Malay, Middle Eastern, Pakistani or north Indian food, which are halal in
+//     practice but hold no certificate
+//
+// The third basis is weaker than the first two, and a user who eats only
+// certified halal would want to know which is which. Recording that difference
+// in the data, and showing it in the interface, is the obvious next step.
 const RESTAURANTS: Restaurant[] = [
   {
     id: '1', name: "McDonald's Taman Connaught DT", cuisine: 'Fast Food',
@@ -129,7 +142,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '2', name: 'Restoran Gading Nasi Kandar', cuisine: 'Malaysian',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: 0.22, googleRating: null,
     address: '41, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Open 24 hours',
@@ -139,7 +152,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '3', name: 'Tai Jie (台街) Taman Connaught', cuisine: 'Taiwanese',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: 0.19, googleRating: null,
     address: '37-G, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: '11:00 - 21:00',
@@ -149,7 +162,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '4', name: 'Craft Cafe', cuisine: 'Cafe',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: 0.23, googleRating: null,
     address: 'First Floor, 3-1, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur',
     hours: '10:00 - 01:00',
@@ -159,7 +172,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '5', name: 'Restoran Shawarma', cuisine: 'Middle Eastern',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: 0.19, googleRating: null,
     address: '10, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: '11:00 - 23:00',
@@ -179,7 +192,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '7', name: 'Kashif Pakistani Food Restaurant', cuisine: 'Pakistani',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '19, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '09:00 - 01:00',
     latitude: null, longitude: null,
@@ -188,7 +201,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '8', name: 'Chapathi Recipes', cuisine: 'North Indian',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '5, Jalan Menara Gading 1, Taman Connaught, 56000 Cheras, Kuala Lumpur', hours: '11:00 - 23:00',
     latitude: null, longitude: null,
@@ -197,7 +210,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '9', name: 'Mix And Fuse Restaurant', cuisine: 'Japanese',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '20-1, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '11:00 - 21:00',
     latitude: null, longitude: null,
@@ -206,7 +219,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '10', name: 'Astarry Cafe', cuisine: 'Cafe',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: 0.19, googleRating: null,
     address: '18, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: '10:00 - 22:00',
@@ -217,7 +230,7 @@ const RESTAURANTS: Restaurant[] = [
   {
     // A second Gading outlet, distinct from id 2.
     id: '11', name: 'Nasi Kandar Nj Bistro', cuisine: 'Malaysian',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '2-G, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: 'Open 24 hours',
     latitude: null, longitude: null,
@@ -228,7 +241,7 @@ const RESTAURANTS: Restaurant[] = [
     // Full record read from the Google Maps place panel: rating 3.5 from 102
     // ratings, and a reported spend of RM 1-20 per person, hence price level 1.
     id: '12', name: 'Ming Yang Kopitiam (名洋美食茶餐)', cuisine: 'Kopitiam',
-    halal: null, priceLevel: 1,
+    halal: false, priceLevel: 1,
     distanceKm: 0.21, googleRating: 3.5,
     address: '24 & 25, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: '07:00 - 22:00',
@@ -238,7 +251,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '13', name: 'Kungfu Ramen Cheras', cuisine: 'Chinese',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: 0.22, googleRating: null,
     address: '15, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Open 24 hours',
@@ -248,7 +261,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '14', name: 'Tai Chong Mix Rice (Taman Connaught)', cuisine: 'Chinese',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '14, Jalan Cerdik, Taman Connaught, 56000 Kuala Lumpur', hours: '07:00 - 16:00',
     latitude: null, longitude: null,
@@ -259,7 +272,7 @@ const RESTAURANTS: Restaurant[] = [
     // OpenStreetMap records this as "Spicy Temptation Restaurant"; Google shows
     // "Temptation". Confirm which name to display.
     id: '15', name: 'Temptation Cheras', cuisine: 'Chinese',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: 0.23, googleRating: null,
     address: '47, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: '11:00 - 22:00',
@@ -269,7 +282,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '16', name: "Stack'd Burger UC Square", cuisine: 'Fast Food',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: 'GF-6, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '10:00 - 23:00',
     latitude: null, longitude: null,
@@ -278,7 +291,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '17', name: "Charr'd Charcoal Chicken UC Square", cuisine: 'Grill',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: 'GF-5, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '10:00 - 23:00',
     latitude: null, longitude: null,
@@ -287,7 +300,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '18', name: 'Muchen Bakehouse', cuisine: 'Bakery',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '1F-3, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '11:00 - 21:00',
     latitude: null, longitude: null,
@@ -296,7 +309,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '19', name: 'Bingxue Taman Connaught', cuisine: 'Dessert',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: 0.22, googleRating: null,
     address: '7, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur',
     hours: '11:00 - 23:00',
@@ -308,7 +321,7 @@ const RESTAURANTS: Restaurant[] = [
     // Listed with a cocktail icon, so it most likely serves alcohol. Left
     // unconfirmed rather than asserted either way.
     id: '20', name: 'Max Bar', cuisine: 'Bar',
-    halal: null, priceLevel: null,
+    halal: false, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '49, Jalan Menara Gading 1, Taman Connaught, 56000 Kuala Lumpur', hours: '19:00 - 03:00',
     latitude: null, longitude: null,
@@ -319,7 +332,7 @@ const RESTAURANTS: Restaurant[] = [
     // Ratings, price band, address and opening time read from the Google Maps
     // place panel for each of the entries below.
     id: '21', name: 'Bep Viet Vietnamese Food (越南厨房)', cuisine: 'Vietnamese',
-    halal: null, priceLevel: 2,
+    halal: false, priceLevel: 2,
     distanceKm: null, googleRating: 4.8,
     address: 'GF-3A, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 11:00',
@@ -328,7 +341,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '22', name: 'Hua Xiao Zhu Hotpot & BBQ (花小猪火锅烤肉店)', cuisine: 'Asian',
-    halal: null, priceLevel: 2,
+    halal: false, priceLevel: 2,
     distanceKm: null, googleRating: 4.5,
     address: 'No. 8-G, UC Square, Dataran Connaught, Jalan Menara Gading 1, 56000 Kuala Lumpur',
     hours: 'Opens 12:00',
@@ -337,7 +350,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '23', name: 'Restoran Fook Xing', cuisine: 'Chinese',
-    halal: null, priceLevel: 1,
+    halal: false, priceLevel: 1,
     distanceKm: null, googleRating: 3.8,
     address: '37, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 09:00',
@@ -346,7 +359,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '24', name: 'Di Guo Jiang Hu (地锅江湖 康乐)', cuisine: 'Chinese',
-    halal: null, priceLevel: 3,
+    halal: false, priceLevel: 3,
     distanceKm: null, googleRating: 5.0,
     address: 'UC Square, GF, 7, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 11:00',
@@ -366,7 +379,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '26', name: 'Ma La Shi Dai (麻辣食代)', cuisine: 'Chinese',
-    halal: null, priceLevel: 2,
+    halal: false, priceLevel: 2,
     distanceKm: null, googleRating: 3.9,
     address: '29, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 11:00',
@@ -387,7 +400,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '28', name: 'Yihetang (@ Taman Connaught)', cuisine: 'Drinks',
-    halal: null, priceLevel: 1,
+    halal: true, priceLevel: 1,
     distanceKm: null, googleRating: 4.4,
     address: 'GF-12, Dataran Connaught, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 10:00',
@@ -396,7 +409,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '29', name: 'Luckin Kitchen (外婆家中餐馆 康乐店)', cuisine: 'Chinese',
-    halal: null, priceLevel: 1,
+    halal: false, priceLevel: 1,
     distanceKm: null, googleRating: 4.2,
     address: '23, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 11:00',
@@ -405,7 +418,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '30', name: 'Crown Luosifen (皇冠螺蛳粉 康乐分店)', cuisine: 'Chinese',
-    halal: null, priceLevel: 1,
+    halal: false, priceLevel: 1,
     distanceKm: null, googleRating: 3.6,
     address: '9, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 10:30',
@@ -414,7 +427,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '31', name: 'Juicy Fresh Juice Bar (UCSI Taman Connaught)', cuisine: 'Drinks',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: 4.7,
     address: '49, Jalan Menara Gading 1, 56000 Cheras, Kuala Lumpur',
     hours: 'Opens 10:00',
@@ -426,7 +439,7 @@ const RESTAURANTS: Restaurant[] = [
   // from the campus is nil rather than merely small.
   {
     id: '32', name: "Uncle Lim's Delights Cafeteria", cuisine: 'Cafeteria',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: 0, googleRating: null,
     address: 'Block G, Lot 1, UCSI University (South Wing), Jalan Menara Gading',
     hours: '08:00 - 23:00',
@@ -435,7 +448,7 @@ const RESTAURANTS: Restaurant[] = [
   },
   {
     id: '33', name: 'Subway UCSI', cuisine: 'Fast Food',
-    halal: null, priceLevel: null,
+    halal: true, priceLevel: null,
     distanceKm: null, googleRating: null,
     address: '1, Jalan UCSI, Taman Connaught, 56000 Kuala Lumpur',
     hours: '08:00 - 22:00',
